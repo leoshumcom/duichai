@@ -6,6 +6,8 @@ import 'core/network/api_client.dart';
 import 'features/auth/auth_page.dart';
 import 'features/profile/profile_page.dart';
 import 'features/venue/publish_venue_page.dart';
+import 'features/venue/venue_detail_page.dart';
+import 'features/club/club_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,15 +41,17 @@ class DuichaiApp extends StatelessWidget {
         '/login': (ctx) => const LoginPage(),
         '/register': (ctx) => const RegisterPage(),
         '/publish': (ctx) => const PublishVenuePage(),
+        '/venue/detail': (ctx) => VenueDetailPage(
+          venueId: ModalRoute.of(ctx)!.settings.arguments as String,
+        ),
+        '/club/create': (ctx) => const CreateClubPage(),
       },
     );
   }
 }
 
-/// 主页面（底部导航）
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
-
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
@@ -58,7 +62,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _pages = [
     const DiscoverPage(),
     const VenueMapPage(),
-    const ClubsPageSimple(),
+    const ClubsPage(),
     const ProfilePage(),
   ];
 
@@ -80,10 +84,9 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-/// 发现页
+// ===== Discover Page =====
 class DiscoverPage extends StatefulWidget {
   const DiscoverPage({super.key});
-
   @override
   State<DiscoverPage> createState() => _DiscoverPageState();
 }
@@ -103,34 +106,24 @@ class _DiscoverPageState extends State<DiscoverPage> {
     try {
       final res = await _api.get('/api/venues', params: {'sort': 'chaihuo', 'limit': '20'});
       if (res['success'] == true && res['data'] != null) {
-        setState(() {
-          _venues = res['data'] as List<dynamic>;
-          _loading = false;
-        });
+        setState(() { _venues = res['data'] as List<dynamic>; _loading = false; });
       }
     } catch (_) {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('堆柴'),
         actions: [
           if (!auth.isLoggedIn)
-            TextButton(
-              onPressed: () => Navigator.pushNamed(context, '/login'),
-              child: const Text('登录'),
-            )
+            TextButton(onPressed: () => Navigator.pushNamed(context, '/login'), child: const Text('登录'))
           else
-            IconButton(
-              icon: const Icon(Icons.notifications_outlined),
-              onPressed: () {},
-            ),
+            IconButton(icon: const Icon(Icons.notifications_outlined), onPressed: () {}),
         ],
       ),
       body: SafeArea(
@@ -142,43 +135,36 @@ class _DiscoverPageState extends State<DiscoverPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 搜索
                     TextField(
                       decoration: InputDecoration(
                         hintText: '搜索场地、俱乐部...',
                         prefixIcon: const Icon(Icons.search),
                         suffixIcon: const Icon(Icons.tune),
                       ),
-                      onTap: () {},
                     ),
                     const SizedBox(height: 20),
-
-                    // 分类标签
                     SizedBox(
                       height: 36,
                       child: ListView(
                         scrollDirection: Axis.horizontal,
-                        children: [
-                          _buildTag('🔥 推荐', true),
-                          _buildTag('🏀 篮球', false),
-                          _buildTag('⚽ 足球', false),
-                          _buildTag('🏸 羽毛球', false),
-                          _buildTag('🎾 网球', false),
-                          _buildTag('🏃 跑步', false),
-                          _buildTag('🛹 滑板', false),
-                        ],
+                        children: ['🔥 推荐', '🏀 篮球', '⚽ 足球', '🏸 羽毛球', '🎾 网球', '🏃 跑步'].map((t) =>
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text(t, style: const TextStyle(fontSize: 13)),
+                              selected: false,
+                              selectedColor: AppTheme.primary.withOpacity(0.15),
+                              onSelected: (_) {},
+                            ),
+                          )
+                        ).toList(),
                       ),
                     ),
                     const SizedBox(height: 16),
-
-                    // 热门标题
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          '🔥 热门场地',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
+                        const Text('🔥 热门场地', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                         TextButton(onPressed: () {}, child: const Text('查看全部 >')),
                       ],
                     ),
@@ -187,12 +173,8 @@ class _DiscoverPageState extends State<DiscoverPage> {
                 ),
               ),
             ),
-
-            // 场地列表
             if (_loading)
-              const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
-              )
+              const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
             else if (_venues.isEmpty)
               SliverFillRemaining(
                 child: Center(
@@ -201,13 +183,11 @@ class _DiscoverPageState extends State<DiscoverPage> {
                     children: [
                       Icon(Icons.stadium_outlined, size: 64, color: Colors.grey.shade300),
                       const SizedBox(height: 16),
-                      Text('还没有场地，来发布第一个吧！',
-                          style: TextStyle(color: Colors.grey.shade500)),
+                      Text('还没有场地，来发布第一个吧！', style: TextStyle(color: Colors.grey.shade500)),
                       const SizedBox(height: 16),
                       ElevatedButton.icon(
                         onPressed: () => Navigator.pushNamed(context, '/publish'),
-                        icon: const Icon(Icons.add),
-                        label: const Text('发布场地'),
+                        icon: const Icon(Icons.add), label: const Text('发布场地'),
                       ),
                     ],
                   ),
@@ -232,42 +212,23 @@ class _DiscoverPageState extends State<DiscoverPage> {
     );
   }
 
-  Widget _buildTag(String label, bool isActive) {
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: isActive,
-        selectedColor: AppTheme.primary.withOpacity(0.15),
-        labelStyle: TextStyle(
-          color: isActive ? AppTheme.primary : Colors.grey.shade600,
-          fontSize: 13,
-        ),
-      ),
-    );
-  }
-
   Widget _buildVenueCard(BuildContext context, dynamic venue) {
     final v = venue as Map<String, dynamic>;
     final photos = (v['photos'] as List?)?.cast<String>() ?? [];
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Card(
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () {},
+          onTap: () => Navigator.pushNamed(context, '/venue/detail', arguments: v['id']),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                // 缩略图
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
-                    width: 80,
-                    height: 80,
-                    color: Colors.grey.shade200,
+                    width: 80, height: 80, color: Colors.grey.shade200,
                     child: photos.isNotEmpty
                         ? Image.network(photos[0], fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => const Icon(Icons.sports_basketball, color: Colors.grey))
@@ -279,41 +240,19 @@ class _DiscoverPageState extends State<DiscoverPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        v['name'] ?? '',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      Text(v['name'] ?? '', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 4),
-                      Text(
-                        '${v['address'] ?? '未知位置'} · ${v['type'] ?? ''}',
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      Text('${v['address'] ?? ''} · ${v['type'] ?? ''}',
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.local_fire_department, color: AppTheme.primary, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${v['chaihuo_total'] ?? 0}',
-                            style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 14),
-                          ),
-                          if (v['is_free'] == 1 || v['is_free'] == true) ...[
-                            const SizedBox(width: 12),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade50,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text('免费', style: TextStyle(fontSize: 11, color: Colors.green.shade700)),
-                            ),
-                          ],
-                        ],
-                      ),
+                      Row(children: [
+                        const Icon(Icons.local_fire_department, color: AppTheme.primary, size: 16),
+                        const SizedBox(width: 4),
+                        Text('${v['chaihuo_total'] ?? 0}',
+                            style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold)),
+                      ]),
                     ],
                   ),
                 ),
@@ -326,8 +265,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
   }
 }
 
-// ===== 占位页面 =====
-
+// ===== Map Page =====
 class VenueMapPage extends StatelessWidget {
   const VenueMapPage({super.key});
   @override
@@ -338,16 +276,8 @@ class VenueMapPage extends StatelessWidget {
       children: [
         Icon(Icons.map_outlined, size: 64, color: Colors.grey.shade300),
         const SizedBox(height: 16),
-        const Text('地图模块开发中'),],
+        Text('地图模块需接入高德SDK', style: TextStyle(color: Colors.grey.shade500)),
+      ],
     )),
-  );
-}
-
-class ClubsPageSimple extends StatelessWidget {
-  const ClubsPageSimple({super.key});
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('俱乐部')),
-    body: const Center(child: Text('俱乐部模块开发中')),
   );
 }

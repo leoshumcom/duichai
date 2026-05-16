@@ -9,6 +9,8 @@ import { initDB } from './db/init';
 import { handleRegister, handleLogin, handleGetUser } from './routes/auth';
 import { handleCreateVenue, handleGetVenue, handleSearchVenues, handleTipVenue, handleSupplementVenue } from './routes/venues';
 import { handleUpload, handleBatchUpload, handleDeleteFile } from './routes/upload';
+import { handleCreateClub, handleListClubs, handleGetClub, handleJoinClub } from './routes/clubs';
+import { handleDashboardStats, handleUserTrend, handleRankings } from './routes/admin';
 
 interface Env {
   duichai_db: D1Database;
@@ -61,6 +63,17 @@ export default {
     router.add('POST', '/api/upload', async (req) => handleUpload(req, env));
     router.add('POST', '/api/upload/batch', async (req) => handleBatchUpload(req, env));
     router.add('DELETE', '/api/upload', async (req) => handleDeleteFile(req, env));
+
+    // ===== 俱乐部 =====
+    router.add('POST', '/api/clubs', async (req) => handleCreateClub(req, env));
+    router.add('GET', '/api/clubs', async (req) => handleListClubs(req, env));
+    router.add('GET', '/api/clubs/:id', async (req, params) => handleGetClub(req, env, params.id));
+    router.add('POST', '/api/clubs/join', async (req) => handleJoinClub(req, env));
+
+    // ===== 管理后台 =====
+    router.add('GET', '/api/admin/stats', async (req) => handleDashboardStats(req, env));
+    router.add('GET', '/api/admin/trend', async (req) => handleUserTrend(req, env));
+    router.add('GET', '/api/rankings', async (req) => handleRankings(req, env));
 
     // 404
     router.add('ALL', '/*', () => {

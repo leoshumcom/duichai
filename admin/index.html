@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>堆柴管理后台</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC",sans-serif;background:#FFF8F0;color:#1A1A1A}
+.sidebar{position:fixed;left:0;top:0;width:240px;height:100vh;background:#1A1A1A;color:#fff;padding:24px}
+.sidebar h2{font-size:24px;color:#FF6B35;margin-bottom:32px}
+.sidebar nav a{display:block;padding:12px 16px;color:#999;text-decoration:none;border-radius:8px;margin-bottom:4px;font-size:14px}
+.sidebar nav a:hover,.sidebar nav a.active{background:#FF6B35;color:#fff}
+.main{margin-left:240px;padding:24px}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:32px}
+.header h1{font-size:24px}
+.header .date{color:#999;font-size:14px}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:32px}
+.kpi-card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
+.kpi-card .label{font-size:13px;color:#999;margin-bottom:8px}
+.kpi-card .value{font-size:32px;font-weight:700;color:#1A1A1A}
+.kpi-card .change{font-size:12px;color:#4CAF50;margin-top:4px}
+.kpi-card.primary .value{color:#FF6B35}
+.section{background:#fff;border-radius:12px;padding:24px;margin-bottom:24px;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
+.section h3{font-size:16px;margin-bottom:16px;color:#333}
+.chart-placeholder{height:200px;background:#FFF8F0;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:14px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;padding:12px 8px;color:#999;font-weight:500;border-bottom:2px solid #f0f0f0}
+td{padding:12px 8px;border-bottom:1px solid #f5f5f5}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px}
+.badge.green{background:#E8F5E9;color:#4CAF50}
+.badge.red{background:#FFEBEE;color:#F44336}
+.badge.orange{background:#FFF3E0;color:#FF9800}
+@media(max-width:768px){.sidebar{width:0;overflow:hidden}.main{margin-left:0}}
+</style>
+</head>
+<body>
+<div class="sidebar">
+  <h2>🔥 堆柴</h2>
+  <nav>
+    <a href="#" class="active">📊 数据大盘</a>
+    <a href="#">👤 用户管理</a>
+    <a href="#">🏟 场地管理</a>
+    <a href="#">🔥 柴火管理</a>
+    <a href="#">🏟 俱乐部管理</a>
+    <a href="#">📋 审核管理</a>
+    <a href="#">📢 广告管理</a>
+    <a href="#">⚙️ 系统设置</a>
+  </nav>
+</div>
+<div class="main">
+  <div class="header">
+    <h1>📊 数据大盘</h1>
+    <span class="date" id="dateDisplay"></span>
+  </div>
+
+  <div class="kpi-grid" id="kpiGrid">
+    <div class="kpi-card primary">
+      <div class="label">累计注册用户</div>
+      <div class="value" id="totalUsers">-</div>
+      <div class="change">点击刷新</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">日活跃用户 (DAU)</div>
+      <div class="value" id="dau">-</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">月活跃用户 (MAU)</div>
+      <div class="value" id="mau">-</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">累计收录场地</div>
+      <div class="value" id="totalVenues">-</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">柴火总量</div>
+      <div class="value" id="totalChaihuo">-</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">俱乐部总数</div>
+      <div class="value" id="totalClubs">-</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>📈 用户增长趋势</h3>
+    <div class="chart-placeholder">用户增长曲线图将在此展示（需集成Chart.js）</div>
+  </div>
+
+  <div class="section">
+    <h3>📋 待审核项目</h3>
+    <table>
+      <thead><tr><th>类型</th><th>待处理</th><th>操作</th></tr></thead>
+      <tbody>
+        <tr><td>🏟 新场地</td><td><span class="badge orange" id="pendingVenues">-</span></td><td><a href="#" style="color:#FF6B35">去审核 →</a></td></tr>
+        <tr><td>👤 馆主认证</td><td><span class="badge orange" id="pendingOwners">-</span></td><td><a href="#" style="color:#FF6B35">去审核 →</a></td></tr>
+        <tr><td>🏟 俱乐部认证</td><td><span class="badge orange" id="pendingClubs">-</span></td><td><a href="#" style="color:#FF6B35">去审核 →</a></td></tr>
+        <tr><td>🚨 举报</td><td><span class="badge red" id="pendingReports">-</span></td><td><a href="#" style="color:#FF6B35">去处理 →</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h3>💰 经济数据</h3>
+    <table>
+      <thead><tr><th>指标</th><th>数值</th></tr></thead>
+      <tbody>
+        <tr><td>充值总额</td><td id="rechargeTotal">¥ -</td></tr>
+        <tr><td>本月充值</td><td id="monthRecharge">¥ -</td></tr>
+        <tr><td>置顶广告收入</td><td id="adRevenue">¥ -</td></tr>
+        <tr><td>ARPU</td><td id="arpu">¥ -</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function updateDate() {
+  const now = new Date();
+  const opts = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+  document.getElementById('dateDisplay').textContent = now.toLocaleDateString('zh-CN', opts);
+}
+updateDate();
+setInterval(updateDate, 60000);
+
+async function refreshData() {
+  try {
+    const res = await fetch('https://api.duichai.com/api/health');
+    const data = await res.json();
+    document.getElementById('totalUsers').textContent = data.status === 'ok' ? '🟢 在线' : '🔴 离线';
+  } catch (e) {
+    document.getElementById('totalUsers').textContent = '🔴 连接失败';
+  }
+}
+refreshData();
+setInterval(refreshData, 30000);
+
+document.querySelectorAll('.kpi-card .value').forEach(el => {
+  if (el.textContent === '-') el.textContent = '待接入';
+});
+</script>
+</body>
+</html>
