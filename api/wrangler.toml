@@ -1,7 +1,6 @@
 name = "duichai-api"
 main = "src/index.ts"
 compatibility_date = "2026-05-16"
-
 account_id = "c9a49d3635d0fb5508bb79c9069d9f6a"
 
 [[d1_databases]]
@@ -20,5 +19,5 @@ routes = [
 ]
 
 [vars]
-APP_NAME = "å †æŸ´"
+APP_NAME = "¶Ñ²ñ"
 ENV = "development"
