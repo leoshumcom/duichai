@@ -1,9 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import 'core/theme/app_theme.dart';
+import 'core/network/api_client.dart';
+import 'features/auth/auth_page.dart';
+import 'features/profile/profile_page.dart';
+import 'features/venue/publish_venue_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const DuichaiApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        Provider<ApiClient>(create: (_) => ApiClient()),
+        ChangeNotifierProvider<AuthProvider>(
+          create: (ctx) => AuthProvider(ctx.read<ApiClient>()),
+        ),
+      ],
+      child: const DuichaiApp(),
+    ),
+  );
 }
 
 class DuichaiApp extends StatelessWidget {
@@ -17,7 +33,13 @@ class DuichaiApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.light,
-      home: const MainScreen(),
+      initialRoute: '/home',
+      routes: {
+        '/home': (ctx) => const MainScreen(),
+        '/login': (ctx) => const LoginPage(),
+        '/register': (ctx) => const RegisterPage(),
+        '/publish': (ctx) => const PublishVenuePage(),
+      },
     );
   }
 }
@@ -36,7 +58,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _pages = [
     const DiscoverPage(),
     const VenueMapPage(),
-    const ClubsPage(),
+    const ClubsPageSimple(),
     const ProfilePage(),
   ];
 
@@ -46,7 +68,7 @@ class _MainScreenState extends State<MainScreen> {
       body: _pages[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: (i) => setState(() => _currentIndex = i),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.explore), label: '发现'),
           BottomNavigationBarItem(icon: Icon(Icons.map), label: '地图'),
@@ -58,42 +80,98 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-/// 发现页面（首页）
-class DiscoverPage extends StatelessWidget {
+/// 发现页
+class DiscoverPage extends StatefulWidget {
   const DiscoverPage({super.key});
 
   @override
+  State<DiscoverPage> createState() => _DiscoverPageState();
+}
+
+class _DiscoverPageState extends State<DiscoverPage> {
+  final _api = ApiClient();
+  List<dynamic> _venues = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVenues();
+  }
+
+  Future<void> _loadVenues() async {
+    try {
+      final res = await _api.get('/api/venues', params: {'sort': 'chaihuo', 'limit': '20'});
+      if (res['success'] == true && res['data'] != null) {
+        setState(() {
+          _venues = res['data'] as List<dynamic>;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('堆柴'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
-          ),
+          if (!auth.isLoggedIn)
+            TextButton(
+              onPressed: () => Navigator.pushNamed(context, '/login'),
+              child: const Text('登录'),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.notifications_outlined),
+              onPressed: () {},
+            ),
         ],
       ),
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
             SliverPadding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               sliver: SliverToBoxAdapter(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 搜索栏
+                    // 搜索
                     TextField(
                       decoration: InputDecoration(
                         hintText: '搜索场地、俱乐部...',
                         prefixIcon: const Icon(Icons.search),
                         suffixIcon: const Icon(Icons.tune),
                       ),
+                      onTap: () {},
                     ),
                     const SizedBox(height: 20),
 
-                    // 热门场地标题
+                    // 分类标签
+                    SizedBox(
+                      height: 36,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          _buildTag('🔥 推荐', true),
+                          _buildTag('🏀 篮球', false),
+                          _buildTag('⚽ 足球', false),
+                          _buildTag('🏸 羽毛球', false),
+                          _buildTag('🎾 网球', false),
+                          _buildTag('🏃 跑步', false),
+                          _buildTag('🛹 滑板', false),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 热门标题
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -101,10 +179,7 @@ class DiscoverPage extends StatelessWidget {
                           '🔥 热门场地',
                           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                         ),
-                        TextButton(
-                          onPressed: () {},
-                          child: const Text('查看全部'),
-                        ),
+                        TextButton(onPressed: () {}, child: const Text('查看全部 >')),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -113,20 +188,69 @@ class DiscoverPage extends StatelessWidget {
               ),
             ),
 
-            // 场地卡片列表（占位）
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => _buildVenueCard(context, index),
-                childCount: 5,
+            // 场地列表
+            if (_loading)
+              const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_venues.isEmpty)
+              SliverFillRemaining(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.stadium_outlined, size: 64, color: Colors.grey.shade300),
+                      const SizedBox(height: 16),
+                      Text('还没有场地，来发布第一个吧！',
+                          style: TextStyle(color: Colors.grey.shade500)),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: () => Navigator.pushNamed(context, '/publish'),
+                        icon: const Icon(Icons.add),
+                        label: const Text('发布场地'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (ctx, i) => _buildVenueCard(context, _venues[i]),
+                  childCount: _venues.length,
+                ),
               ),
-            ),
           ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.pushNamed(context, '/publish'),
+        backgroundColor: AppTheme.primary,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text('发布场地', style: TextStyle(color: Colors.white)),
+      ),
+    );
+  }
+
+  Widget _buildTag(String label, bool isActive) {
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: isActive,
+        selectedColor: AppTheme.primary.withOpacity(0.15),
+        labelStyle: TextStyle(
+          color: isActive ? AppTheme.primary : Colors.grey.shade600,
+          fontSize: 13,
         ),
       ),
     );
   }
 
-  Widget _buildVenueCard(BuildContext context, int index) {
+  Widget _buildVenueCard(BuildContext context, dynamic venue) {
+    final v = venue as Map<String, dynamic>;
+    final photos = (v['photos'] as List?)?.cast<String>() ?? [];
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Card(
@@ -138,15 +262,16 @@ class DiscoverPage extends StatelessWidget {
             child: Row(
               children: [
                 // 缩略图
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: 80,
+                    height: 80,
                     color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.sports_basketball, color: Colors.grey),
+                    child: photos.isNotEmpty
+                        ? Image.network(photos[0], fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(Icons.sports_basketball, color: Colors.grey))
+                        : const Icon(Icons.sports_basketball, color: Colors.grey),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -154,32 +279,39 @@ class DiscoverPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        '示例篮球场',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      Text(
+                        v['name'] ?? '',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '朝阳区 · 篮球',
+                        '${v['address'] ?? '未知位置'} · ${v['type'] ?? ''}',
                         style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 8),
                       Row(
                         children: [
                           const Icon(Icons.local_fire_department, color: AppTheme.primary, size: 16),
+                          const SizedBox(width: 4),
                           Text(
-                            ' ${(index + 1) * 100}',
-                            style: const TextStyle(
-                              color: AppTheme.primary,
-                              fontWeight: FontWeight.bold,
+                            '${v['chaihuo_total'] ?? 0}',
+                            style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          if (v['is_free'] == 1 || v['is_free'] == true) ...[
+                            const SizedBox(width: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade50,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text('免费', style: TextStyle(fontSize: 11, color: Colors.green.shade700)),
                             ),
-                          ),
-                          const Spacer(),
-                          Icon(Icons.location_on, size: 14, color: Colors.grey.shade400),
-                          Text(
-                            ' 1.2km',
-                            style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
-                          ),
+                          ],
                         ],
                       ),
                     ],
@@ -194,80 +326,28 @@ class DiscoverPage extends StatelessWidget {
   }
 }
 
-/// 地图页面（占位）
+// ===== 占位页面 =====
+
 class VenueMapPage extends StatelessWidget {
   const VenueMapPage({super.key});
-
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('地图找场')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.map_outlined, size: 64, color: Colors.grey.shade300),
-            const SizedBox(height: 16),
-            Text('地图模块开发中', style: TextStyle(color: Colors.grey.shade500)),
-            Text('需接入高德地图 SDK', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('地图找场')),
+    body: Center(child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.map_outlined, size: 64, color: Colors.grey.shade300),
+        const SizedBox(height: 16),
+        const Text('地图模块开发中'),],
+    )),
+  );
 }
 
-/// 俱乐部页面（占位）
-class ClubsPage extends StatelessWidget {
-  const ClubsPage({super.key});
-
+class ClubsPageSimple extends StatelessWidget {
+  const ClubsPageSimple({super.key});
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('俱乐部')),
-      body: const Center(child: Text('俱乐部模块开发中')),
-    );
-  }
-}
-
-/// 个人中心页面（占位）
-class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('我的')),
-      body: const Center(child: Text('个人中心开发中')),
-    );
-  }
-}
-
-/// 登录页面（占位）
-class LoginPage extends StatelessWidget {
-  const LoginPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('登录')),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('登录页面开发中', style: TextStyle(fontSize: 18)),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {},
-                child: const Text('登录'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('俱乐部')),
+    body: const Center(child: Text('俱乐部模块开发中')),
+  );
 }
