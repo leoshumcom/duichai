@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/network/api_client.dart';
+import '../auth/auth_page.dart';
 
 class PublishVenuePage extends StatefulWidget {
   const PublishVenuePage({super.key});
@@ -57,6 +59,7 @@ class _PublishVenuePageState extends State<PublishVenuePage> {
     }
     setState(() => _loading = true);
     try {
+      final auth = context.read<AuthProvider>();
       await _api.post('/api/venues', data: {
         'name': _nameCtrl.text,
         'type': _selectedType,
@@ -65,7 +68,7 @@ class _PublishVenuePageState extends State<PublishVenuePage> {
         'address': _address,
         'description': _descCtrl.text,
         'is_free': _isFree,
-        'publisher_id': 'temp',
+        'publisher_id': auth.isLoggedIn ? auth.user!['user_id'] : 'temp',
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -126,7 +129,45 @@ class _PublishVenuePageState extends State<PublishVenuePage> {
                   leading: const Icon(Icons.location_on, color: AppTheme.primary),
                   title: Text(_address ?? '点击选择位置'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () {},
+                  onTap: () async {
+                    // 简单手动输入坐标（地图选点模块待高德SDK修复后接入）
+                    final latCtrl = TextEditingController(text: _lat?.toString() ?? '');
+                    final lngCtrl = TextEditingController(text: _lng?.toString() ?? '');
+                    final addrCtrl = TextEditingController(text: _address ?? '');
+                    final result = await showDialog<Map<String, dynamic>>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('设置位置'),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextField(controller: addrCtrl, decoration: const InputDecoration(labelText: '地址', hintText: '手动输入地址'), maxLines: 2),
+                            const SizedBox(height: 8),
+                            Row(children: [
+                              Expanded(child: TextField(controller: latCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '纬度'))),
+                              const SizedBox(width: 8),
+                              Expanded(child: TextField(controller: lngCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '经度'))),
+                            ]),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+                          ElevatedButton(onPressed: () => Navigator.pop(ctx, {
+                            'lat': double.tryParse(latCtrl.text) ?? 39.9,
+                            'lng': double.tryParse(lngCtrl.text) ?? 116.4,
+                            'address': addrCtrl.text.trim(),
+                          }), child: const Text('确认')),
+                        ],
+                      ),
+                    );
+                    if (result != null && mounted) {
+                      setState(() {
+                        _lat = result['lat'] as double;
+                        _lng = result['lng'] as double;
+                        _address = result['address'] as String;
+                      });
+                    }
+                  },
                 ),
               ),
               const SizedBox(height: 16),

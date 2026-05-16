@@ -361,6 +361,17 @@ CREATE TABLE IF NOT EXISTS mentions (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- 29. 会话表（Token持久化）
+CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    expires_at TEXT NOT NULL DEFAULT (datetime('now', '+30 days'))
+);
+
+CREATE INDEX idx_sessions_user ON sessions(user_id);
+CREATE INDEX idx_sessions_expires ON sessions(expires_at);
+
 -- 插入默认等级
 INSERT OR IGNORE INTO user_levels (level, name, min_chaihuo, perks) VALUES
     (1, '柴薪', 0, '["基础功能"]'),

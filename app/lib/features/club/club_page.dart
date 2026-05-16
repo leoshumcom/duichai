@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/network/api_client.dart';
+import '../auth/auth_page.dart';
 
 /// 俱乐部列表页
 class ClubsPage extends StatefulWidget {
@@ -23,8 +25,15 @@ class _ClubsPageState extends State<ClubsPage> {
 
   Future<void> _loadClubs() async {
     try {
-      // TODO: 实现俱乐部列表API后替换
-      setState(() => _loading = false);
+      final res = await _api.get('/api/clubs');
+      if (res['success'] == true && res['data'] != null) {
+        setState(() {
+          _clubs = (res['data'] as List).cast<Map<String, dynamic>>();
+          _loading = false;
+        });
+      } else {
+        setState(() => _loading = false);
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -164,13 +173,39 @@ class _CreateClubPageState extends State<CreateClubPage> {
     setState(() => _loading = true);
 
     try {
-      // TODO: 接入创建俱乐部API
-      await Future.delayed(const Duration(seconds: 1));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('俱乐部创建成功！获得50根启动柴火🔥')),
-        );
-        Navigator.pop(context, true);
+      final auth = context.read<AuthProvider>();
+      if (!auth.isLoggedIn) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('请先登录')),
+          );
+        }
+        setState(() => _loading = false);
+        return;
+      }
+
+      final res = await _api.post('/api/clubs', data: {
+        'name': _nameCtrl.text.trim(),
+        'description': _descCtrl.text.isNotEmpty ? _descCtrl.text.trim() : null,
+        'slogan': _sloganCtrl.text.isNotEmpty ? _sloganCtrl.text.trim() : null,
+        'sport_types': _sports,
+        'contact': _contactCtrl.text.isNotEmpty ? _contactCtrl.text.trim() : null,
+        'creator_id': auth.user!['user_id'],
+      });
+
+      if (res['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('俱乐部创建成功！获得50根启动柴火🔥')),
+          );
+          Navigator.pop(context, true);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(res['error'] ?? '创建失败，请重试')),
+          );
+        }
       }
     } catch (_) {
       if (mounted) {

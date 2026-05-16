@@ -76,8 +76,11 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
       return jsonResponse({ error: '邮箱或密码错误' }, 401);
     }
 
-    // TODO: 生产环境使用 JWT
+    // 生成Token并存入session表
     const token = generateId() + '-' + generateId();
+    await env.duichai_db.prepare(
+      'INSERT OR REPLACE INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, datetime("now"), datetime("now", "+30 days"))'
+    ).bind(token, user.id).run();
 
     return jsonResponse({
       success: true,
@@ -96,6 +99,34 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
   } catch (e) {
     return jsonResponse({ error: '服务器错误' }, 500);
   }
+}
+
+/// 通过Token获取当前用户
+async function getUserFromToken(request: Request, env: Env): Promise<any | null> {
+  const auth = request.headers.get('Authorization');
+  if (!auth || !auth.startsWith('Bearer ')) return null;
+  const token = auth.slice(7);
+  
+  const session: any = await env.duichai_db.prepare(
+    'SELECT user_id FROM sessions WHERE token = ? AND expires_at > datetime("now")'
+  ).bind(token).first();
+  
+  if (!session) return null;
+  
+  const user: any = await env.duichai_db.prepare(
+    'SELECT id, email, nickname, phone, avatar, role, level, chaihuo_balance, total_chaihuo_earned, invite_code, created_at FROM users WHERE id = ?'
+  ).bind(session.user_id).first();
+  
+  return user;
+}
+
+/// 获取当前登录用户信息（通过Token）
+export async function handleGetMe(request: Request, env: Env): Promise<Response> {
+  const user = await getUserFromToken(request, env);
+  if (!user) {
+    return jsonResponse({ error: '未登录或Token已过期' }, 401);
+  }
+  return jsonResponse({ success: true, data: user });
 }
 
 export async function handleGetUser(request: Request, env: Env, userId: string): Promise<Response> {

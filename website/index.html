@@ -25,31 +25,46 @@
             padding: 80px 24px;
             background: linear-gradient(180deg, #FFF8F0 0%, #FFE8D0 100%);
             position: relative;
+            overflow: hidden;
         }
         .hero::before {
-            content: "🔥";
+            content: "";
             position: absolute;
-            top: 60px;
-            font-size: 80px;
-            opacity: 0.15;
-            animation: float 6s ease-in-out infinite;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(255,107,53,0.08) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: pulse 4s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.5; }
+            50% { transform: translateX(-50%) scale(1.5); opacity: 1; }
         }
         @keyframes float {
             0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-20px); }
+            50% { transform: translateY(-8px); }
         }
-        .hero-logo {
-            font-size: 64px;
-            font-weight: 800;
-            color: #FF6B35;
-            letter-spacing: 4px;
-            margin-bottom: 16px;
+        @keyframes flicker {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        /* SVG Logo - 3 Matchsticks forming a campfire */
+        .hero-logo-svg {
+            width: 120px;
+            height: 140px;
+            margin-bottom: 20px;
+            animation: float 4s ease-in-out infinite;
         }
         .hero-tagline {
             font-size: 22px;
             color: #8B4513;
             margin-bottom: 12px;
             font-weight: 500;
+            letter-spacing: 8px;
         }
         .hero-slogan {
             font-size: 28px;
@@ -169,7 +184,7 @@
 
         /* 响应式 */
         @media (max-width: 640px) {
-            .hero-logo { font-size: 48px; }
+            .hero-logo-svg { width: 90px; height: 105px; }
             .hero-slogan { font-size: 22px; }
             .download-buttons { flex-direction: column; align-items: center; }
             .btn-download { width: 100%; max-width: 280px; justify-content: center; }
@@ -180,8 +195,53 @@
 <body>
 
 <section class="hero">
-    <div class="hero-logo">堆柴</div>
-    <div class="hero-tagline">DuiChai</div>
+    <!-- SVG Logo: 3 Matchsticks forming a campfire -->
+    <svg class="hero-logo-svg" viewBox="0 0 120 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Left matchstick -->
+        <g>
+            <rect x="48" y="50" width="6" height="50" rx="3" fill="#C4956A"/>
+            <rect x="47" y="48" width="8" height="8" rx="2" fill="#FFD700"/>
+            <animateTransform attributeName="transform" type="rotate" values="-8 51 50;0 51 50;-8 51 50" dur="6s" repeatCount="indefinite"/>
+        </g>
+        <!-- Right matchstick -->
+        <g>
+            <rect x="66" y="50" width="6" height="50" rx="3" fill="#C4956A"/>
+            <rect x="65" y="48" width="8" height="8" rx="2" fill="#FFD700"/>
+            <animateTransform attributeName="transform" type="rotate" values="8 69 50;0 69 50;8 69 50" dur="6s" repeatCount="indefinite"/>
+        </g>
+        <!-- Center matchstick -->
+        <g>
+            <rect x="57" y="35" width="6" height="65" rx="3" fill="#D4A574"/>
+            <rect x="56" y="33" width="8" height="8" rx="2" fill="#FFB800"/>
+        </g>
+        <!-- Fire flames -->
+        <g>
+            <!-- Main flame -->
+            <path d="M60 40 Q45 25 50 15 Q55 5 60 10 Q65 5 70 15 Q75 25 60 40Z" fill="#FF6B35" opacity="0.9">
+                <animate attributeName="d" values="M60 40 Q45 25 50 15 Q55 5 60 10 Q65 5 70 15 Q75 25 60 40Z;M60 40 Q43 23 48 13 Q53 3 60 8 Q67 3 72 13 Q77 23 60 40Z;M60 40 Q45 25 50 15 Q55 5 60 10 Q65 5 70 15 Q75 25 60 40Z" dur="1.5s" repeatCount="indefinite"/>
+            </path>
+            <!-- Inner flame -->
+            <path d="M60 38 Q50 28 54 20 Q57 14 60 18 Q63 14 66 20 Q70 28 60 38Z" fill="#FFD700" opacity="0.9">
+                <animate attributeName="d" values="M60 38 Q50 28 54 20 Q57 14 60 18 Q63 14 66 20 Q70 28 60 38Z;M60 38 Q48 26 52 18 Q55 12 60 16 Q65 12 68 18 Q72 26 60 38Z;M60 38 Q50 28 54 20 Q57 14 60 18 Q63 14 66 20 Q70 28 60 38Z" dur="1.2s" repeatCount="indefinite"/>
+            </path>
+            <!-- Tiny sparkles -->
+            <circle cx="48" cy="18" r="1.5" fill="#FF6B35" opacity="0.6">
+                <animate attributeName="cy" values="18;5;18" dur="3s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.6;0;0.6" dur="3s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="72" cy="20" r="1.2" fill="#FF6B35" opacity="0.4">
+                <animate attributeName="cy" values="20;8;20" dur="2.5s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.4;0;0.4" dur="2.5s" repeatCount="indefinite"/>
+            </circle>
+        </g>
+        <!-- Log base (3 horizontal logs) -->
+        <g opacity="0.3">
+            <rect x="40" y="95" width="40" height="5" rx="2" fill="#8B4513"/>
+            <rect x="42" y="100" width="36" height="5" rx="2" fill="#A0522D"/>
+        </g>
+    </svg>
+
+    <div class="hero-tagline">DUI CHAI</div>
     <div class="hero-slogan">🔥 众人拾柴火焰高</div>
     <p class="hero-desc">
         发现你身边的运动场地，分享运动热爱。<br/>
@@ -263,7 +323,7 @@
 
 <footer class="footer">
     <div class="container">
-        <p>© 2026 堆柴 DuiChai · 众人拾柴火焰高</p>
+        <p>&copy; 2026 &#x5806;&#x67F4; DuiChai &middot; &#x4F17;&#x4EBA;&#x62FE;&#x67F4;&#x706B;&#x7130;&#x9AD8;</p>
         <p style="margin-top: 8px;">
             <a href="mailto:hi@duichai.com">hi@duichai.com</a>
         </p>

@@ -4,8 +4,46 @@ import '../../core/theme/app_theme.dart';
 import '../../core/network/api_client.dart';
 import '../auth/auth_page.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  void _showEditProfileDialog(BuildContext context, AuthProvider auth) {
+    final user = auth.user;
+    final nickCtrl = TextEditingController(text: user?['nickname'] ?? '');
+    final phoneCtrl = TextEditingController(text: user?['phone'] ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('编辑资料'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: nickCtrl, decoration: const InputDecoration(labelText: '昵称')),
+            const SizedBox(height: 12),
+            TextField(controller: phoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: '手机号')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          ElevatedButton(onPressed: () async {
+            // TODO: 接入更新资料API
+            Navigator.pop(ctx);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('资料更新成功')),
+              );
+            }
+          }, child: const Text('保存')),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,12 +82,36 @@ class ProfilePage extends StatelessWidget {
                 padding: const EdgeInsets.all(20),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 36,
-                      backgroundColor: AppTheme.primary,
-                      child: Text(
-                        (user?['nickname'] ?? '?').toString().substring(0, 1).toUpperCase(),
-                        style: const TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold),
+                    GestureDetector(
+                      onTap: () => _showAvatarPicker(context, auth),
+                      child: Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 36,
+                            backgroundColor: AppTheme.primary,
+                            backgroundImage: user?['avatar'] != null
+                                ? NetworkImage(user!['avatar'])
+                                : null,
+                            child: user?['avatar'] == null
+                                ? Text(
+                                    (user?['nickname'] ?? '?').toString().substring(0, 1).toUpperCase(),
+                                    style: const TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold),
+                                  )
+                                : null,
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: AppTheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -60,8 +122,17 @@ class ProfilePage extends StatelessWidget {
                           Text(user?['nickname'] ?? '',
                               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),
-                          Text(user?['email'] ?? '',
-                              style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                          Row(
+                            children: [
+                              Text(user?['email'] ?? '',
+                                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                              const SizedBox(width: 4),
+                              GestureDetector(
+                                onTap: () => _showEditProfileDialog(context, auth),
+                                child: Icon(Icons.edit, size: 14, color: AppTheme.primary),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 8),
                           Row(children: [
                             _buildBadge('Lv.${user?['level'] ?? 1}'),
@@ -72,7 +143,6 @@ class ProfilePage extends StatelessWidget {
                         ],
                       ),
                     ),
-                    IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () {}),
                   ],
                 ),
               ),
@@ -91,17 +161,29 @@ class ProfilePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            _menuItem(Icons.local_fire_department, '我的添柴', () {}),
-            _menuItem(Icons.stadium_outlined, '我发布的场地', () {}),
-            _menuItem(Icons.groups_outlined, '我的俱乐部', () {}),
-            _menuItem(Icons.star_outline, '我的勋章', () {}),
-            _menuItem(Icons.person_add_alt_1, '邀请好友', () {}),
-            _menuItem(Icons.settings_outlined, '设置', () {}),
+            _menuItem(Icons.local_fire_department, '我的添柴', () {
+              _showComingSoon(context, '我的添柴');
+            }),
+            _menuItem(Icons.stadium_outlined, '我发布的场地', () {
+              Navigator.pushNamed(context, '/venue/list');
+            }),
+            _menuItem(Icons.groups_outlined, '我的俱乐部', () {
+              Navigator.pushNamed(context, '/club/create');
+            }),
+            _menuItem(Icons.star_outline, '我的勋章', () {
+              _showComingSoon(context, '我的勋章');
+            }),
+            _menuItem(Icons.person_add_alt_1, '邀请好友', () {
+              _showComingSoon(context, '邀请好友');
+            }),
+            _menuItem(Icons.settings_outlined, '设置', () {
+              _showComingSoon(context, '设置');
+            }),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: () { auth.logout(); Navigator.pushReplacementNamed(context, '/home'); },
+                onPressed: () async { await auth.logout(); if (context.mounted) Navigator.pushReplacementNamed(context, '/home'); },
                 style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
                 child: const Text('退出登录'),
               ),
@@ -109,6 +191,20 @@ class ProfilePage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  void _showComingSoon(BuildContext context, String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$feature 即将上线', style: const TextStyle(color: Colors.white)),
+          backgroundColor: AppTheme.warmBrown, duration: const Duration(seconds: 1)),
+    );
+  }
+
+  void _showAvatarPicker(BuildContext context, AuthProvider auth) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('头像上传功能即将上线'),
+          backgroundColor: AppTheme.warmBrown, duration: Duration(seconds: 1)),
     );
   }
 

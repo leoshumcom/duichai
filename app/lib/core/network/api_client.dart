@@ -1,9 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// API 基础配置
 class ApiClient {
   static const String _baseUrl = 'https://api.duichai.com';
+  static const String _tokenKey = 'duichai_auth_token';
 
   late final Dio _dio;
 
@@ -26,6 +28,16 @@ class ApiClient {
     }
   }
 
+  /// 启动时从持久化存储恢复Token
+  Future<String?> restoreToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(_tokenKey);
+    if (token != null) {
+      _dio.options.headers['Authorization'] = 'Bearer $token';
+    }
+    return token;
+  }
+
   Future<Map<String, dynamic>> get(String path, {Map<String, dynamic>? params}) async {
     final response = await _dio.get(path, queryParameters: params);
     return response.data as Map<String, dynamic>;
@@ -46,13 +58,17 @@ class ApiClient {
     return response.data as Map<String, dynamic>;
   }
 
-  // 设置认证 Token
-  void setToken(String token) {
+  // 设置认证 Token（持久化）
+  Future<void> setToken(String token) async {
     _dio.options.headers['Authorization'] = 'Bearer $token';
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_tokenKey, token);
   }
 
-  void clearToken() {
+  Future<void> clearToken() async {
     _dio.options.headers.remove('Authorization');
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
   }
 }
 

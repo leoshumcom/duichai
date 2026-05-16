@@ -15,6 +15,27 @@ class AuthProvider extends ChangeNotifier {
   String? get token => _token;
   Map<String, dynamic>? get user => _user;
 
+  /// 启动时从持久化存储恢复登录状态
+  Future<void> init() async {
+    final savedToken = await _api.restoreToken();
+    if (savedToken != null) {
+      _token = savedToken;
+      // Token恢复后，API client已有token；后续请求时会自动带
+      // 可选：调用 /api/auth/me 来还原用户信息（如果服务端有该端点）
+      try {
+        final res = await _api.get('/api/users/me');
+        if (res['success'] == true && res['data'] != null) {
+          _user = res['data'];
+        }
+      } catch (_) {
+        // Token可能已过期，清掉
+        _token = null;
+        await _api.clearToken();
+      }
+    }
+    notifyListeners();
+  }
+
   Future<Map<String, dynamic>> register(String email, String password, String nickname) async {
     final res = await _api.post('/api/auth/register', data: {
       'email': email,
@@ -32,16 +53,16 @@ class AuthProvider extends ChangeNotifier {
     if (res['success'] == true && res['data'] != null) {
       _token = res['data']['token'];
       _user = res['data'];
-      _api.setToken(_token!);
+      await _api.setToken(_token!);
       notifyListeners();
     }
     return res;
   }
 
-  void logout() {
+  Future<void> logout() async {
     _token = null;
     _user = null;
-    _api.clearToken();
+    await _api.clearToken();
     notifyListeners();
   }
 }

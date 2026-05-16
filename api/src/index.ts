@@ -6,7 +6,7 @@
 import { Router } from './router';
 import { jsonResponse, corsHeaders } from './utils';
 import { initDB } from './db/init';
-import { handleRegister, handleLogin, handleGetUser } from './routes/auth';
+import { handleRegister, handleLogin, handleGetUser, handleGetMe } from './routes/auth';
 import { handleCreateVenue, handleGetVenue, handleSearchVenues, handleTipVenue, handleSupplementVenue } from './routes/venues';
 import { handleUpload, handleBatchUpload, handleDeleteFile } from './routes/upload';
 import { handleCreateClub, handleListClubs, handleGetClub, handleJoinClub } from './routes/clubs';
@@ -50,6 +50,7 @@ export default {
     // ===== 用户认证 =====
     router.add('POST', '/api/auth/register', async (req) => handleRegister(req, env));
     router.add('POST', '/api/auth/login', async (req) => handleLogin(req, env));
+    router.add('GET', '/api/users/me', async (req) => handleGetMe(req, env));
     router.add('GET', '/api/users/:id', async (req, params) => handleGetUser(req, env, params.id));
 
     // ===== 场地 =====

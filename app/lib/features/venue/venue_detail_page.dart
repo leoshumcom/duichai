@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/network/api_client.dart';
+import '../auth/auth_page.dart';
 
 /// 场地详情页
 class VenueDetailPage extends StatefulWidget {
@@ -45,11 +47,20 @@ class _VenueDetailPageState extends State<VenueDetailPage> {
     final tipAmount = _tipAmount;
     if (tipAmount <= 0) return;
 
-    // TODO: 获取实际 user_id
+    final auth = context.read<AuthProvider>();
+    if (!auth.isLoggedIn) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请先登录再添柴')),
+        );
+      }
+      return;
+    }
+
     try {
       await _api.post('/api/venues/tip', data: {
         'venue_id': widget.venueId,
-        'user_id': 'temp',
+        'user_id': auth.user!['user_id'],
         'amount': tipAmount,
         'content': _tipCtrl.text.isNotEmpty ? _tipCtrl.text : null,
       });

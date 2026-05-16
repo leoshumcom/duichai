@@ -10,15 +10,17 @@ import 'features/venue/venue_detail_page.dart';
 import 'features/club/club_page.dart';
 import 'features/payment/recharge_page.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final api = ApiClient();
+  final auth = AuthProvider(api);
+  // 启动时恢复登录状态
+  await auth.init();
   runApp(
     MultiProvider(
       providers: [
-        Provider<ApiClient>(create: (_) => ApiClient()),
-        ChangeNotifierProvider<AuthProvider>(
-          create: (ctx) => AuthProvider(ctx.read<ApiClient>()),
-        ),
+        Provider<ApiClient>.value(value: api),
+        ChangeNotifierProvider<AuthProvider>.value(value: auth),
       ],
       child: const DuichaiApp(),
     ),
@@ -45,6 +47,7 @@ class DuichaiApp extends StatelessWidget {
         '/venue/detail': (ctx) => VenueDetailPage(
           venueId: ModalRoute.of(ctx)!.settings.arguments as String,
         ),
+        '/venue/list': (ctx) => const DiscoverPage(),
         '/club/create': (ctx) => const CreateClubPage(),
         '/recharge': (ctx) => const RechargePage(),
       },
@@ -167,7 +170,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text('🔥 热门场地', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                        TextButton(onPressed: () {}, child: const Text('查看全部 >')),
+                        TextButton(onPressed: () => Navigator.pushNamed(context, '/venue/list'), child: const Text('查看全部 >')),
                       ],
                     ),
                     const SizedBox(height: 12),
