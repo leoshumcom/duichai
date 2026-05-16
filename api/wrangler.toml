@@ -2,29 +2,19 @@ name = "duichai-api"
 main = "src/index.ts"
 compatibility_date = "2026-05-16"
 
-# 堆柴账户
 account_id = "c9a49d3635d0fb5508bb79c9069d9f6a"
 
-# D1 数据库
 [[d1_databases]]
 binding = "duichai_db"
 database_name = "duichai-db"
 database_id = "7f14f8d6-4128-42a1-b1ff-57d75b1de622"
 
-# R2 存储（待激活后启用）
-# [[r2_buckets]]
-# binding = "duichai_assets"
-# bucket_name = "duichai-assets"
-
-# workers.dev
 workers_dev = true
 
-# 路由（部署后配置 DNS）
-# routes = [
-#   { pattern = "api.duichai.com", custom_domain = true }
-# ]
+routes = [
+  { pattern = "api.duichai.com", custom_domain = true }
+]
 
-# 环境变量
 [vars]
 APP_NAME = "堆柴"
 ENV = "development"
