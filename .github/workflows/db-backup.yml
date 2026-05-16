@@ -1,0 +1,23 @@
+name: Database Backup
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 每天 UTC 2:00 (北京时间 10:00)
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    name: Backup D1 Database
+
+    steps:
+      - name: Download and Upload Backup
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN_DUICHAI }}
+          command: d1 backup create duichai-db
+
+      - name: Upload to R2
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN_DUICHAI }}
+          command: r2 object put duichai-assets/backups/db/daily-$(date +%Y-%m-%d).sql

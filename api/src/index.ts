@@ -1,14 +1,17 @@
 /**
- * 堆柴 API 入口
- * Cloudflare Workers + D1 + R2
+ * 堆柴 API - Cloudflare Workers
+ * 众人拾柴火焰高 🔥
  */
 
 import { Router } from './router';
+import { jsonResponse, corsHeaders } from './utils';
 import { initDB } from './db/init';
+import { handleRegister, handleLogin, handleGetUser } from './routes/auth';
+import { handleCreateVenue, handleGetVenue, handleSearchVenues, handleTipVenue, handleSupplementVenue } from './routes/venues';
 
 interface Env {
   duichai_db: D1Database;
-  duichai_assets: R2Bucket;
+  duichai_assets?: R2Bucket;
   APP_NAME: string;
   ENV: string;
 }
@@ -18,10 +21,8 @@ export default {
     const router = new Router();
 
     // CORS 预检
-    router.add('OPTIONS', '/*', () => {
-      return new Response(null, {
-        headers: corsHeaders(request),
-      });
+    router.add('OPTIONS', '/*', (req) => {
+      return new Response(null, { headers: corsHeaders(req) });
     });
 
     // 健康检查
@@ -43,75 +44,23 @@ export default {
       return jsonResponse({ success: true, message: 'Database initialized' });
     });
 
-    // === 用户路由 ===
-    router.add('POST', '/api/auth/register', async (req) => {
-      return await handleRegister(req, env);
-    });
+    // ===== 用户认证 =====
+    router.add('POST', '/api/auth/register', async (req) => handleRegister(req, env));
+    router.add('POST', '/api/auth/login', async (req) => handleLogin(req, env));
+    router.add('GET', '/api/users/:id', async (req, params) => handleGetUser(req, env, params.id));
 
-    router.add('POST', '/api/auth/login', async (req) => {
-      return await handleLogin(req, env);
-    });
+    // ===== 场地 =====
+    router.add('POST', '/api/venues', async (req) => handleCreateVenue(req, env));
+    router.add('GET', '/api/venues/:id', async (req, params) => handleGetVenue(req, env, params.id));
+    router.add('GET', '/api/venues', async (req) => handleSearchVenues(req, env));
+    router.add('POST', '/api/venues/tip', async (req) => handleTipVenue(req, env));
+    router.add('POST', '/api/venues/supplement', async (req) => handleSupplementVenue(req, env));
 
     // 404
     router.add('ALL', '/*', () => {
-      return jsonResponse({ error: 'Not Found' }, 404);
+      return jsonResponse({ error: 'Not Found', code: 404 }, 404);
     });
 
     return router.handle(request);
   },
 };
-
-// ===== 工具函数 =====
-
-function jsonResponse(data: any, status = 200): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-    },
-  });
-}
-
-function corsHeaders(request: Request): Record<string, string> {
-  const origin = request.headers.get('Origin') || '*';
-  return {
-    'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Max-Age': '86400',
-  };
-}
-
-// ===== 用户认证处理（占位） =====
-
-async function handleRegister(request: Request, env: Env): Promise<Response> {
-  try {
-    const body: any = await request.json();
-    const { email, password, nickname } = body;
-
-    if (!email || !password || !nickname) {
-      return jsonResponse({ error: 'email, password, nickname 为必填' }, 400);
-    }
-
-    // TODO: 密码加密 + 邮箱验证 + 发送验证邮件
-    return jsonResponse({ message: '注册成功' });
-  } catch (e) {
-    return jsonResponse({ error: '请求格式错误' }, 400);
-  }
-}
-
-async function handleLogin(request: Request, env: Env): Promise<Response> {
-  try {
-    const body: any = await request.json();
-    const { email, password } = body;
-
-    if (!email || !password) {
-      return jsonResponse({ error: 'email, password 为必填' }, 400);
-    }
-
-    // TODO: 密码验证 + Token 生成
-    return jsonResponse({ message: '登录成功' });
-  } catch (e) {
-    return jsonResponse({ error: '请求格式错误' }, 400);
-  }
-}
