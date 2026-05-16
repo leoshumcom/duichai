@@ -26,6 +26,14 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>堆柴需要获取您的位置信息以发现附近的运动场地</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>堆柴需要在后台获取位置以记录您的运动足迹</string>
+	<key>NSCameraUsageDescription</key>
+	<string>堆柴需要使用相机拍摄场地照片和视频</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>堆柴需要访问相册以选择场地图片</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
