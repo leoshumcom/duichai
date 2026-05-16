@@ -9,6 +9,10 @@ binding = "duichai_db"
 database_name = "duichai-db"
 database_id = "7f14f8d6-4128-42a1-b1ff-57d75b1de622"
 
+[[r2_buckets]]
+binding = "duichai_assets"
+bucket_name = "duichai-assets"
+
 workers_dev = true
 
 routes = [

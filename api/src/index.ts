@@ -8,6 +8,7 @@ import { jsonResponse, corsHeaders } from './utils';
 import { initDB } from './db/init';
 import { handleRegister, handleLogin, handleGetUser } from './routes/auth';
 import { handleCreateVenue, handleGetVenue, handleSearchVenues, handleTipVenue, handleSupplementVenue } from './routes/venues';
+import { handleUpload, handleBatchUpload, handleDeleteFile } from './routes/upload';
 
 interface Env {
   duichai_db: D1Database;
@@ -55,6 +56,11 @@ export default {
     router.add('GET', '/api/venues', async (req) => handleSearchVenues(req, env));
     router.add('POST', '/api/venues/tip', async (req) => handleTipVenue(req, env));
     router.add('POST', '/api/venues/supplement', async (req) => handleSupplementVenue(req, env));
+
+    // ===== 文件上传 =====
+    router.add('POST', '/api/upload', async (req) => handleUpload(req, env));
+    router.add('POST', '/api/upload/batch', async (req) => handleBatchUpload(req, env));
+    router.add('DELETE', '/api/upload', async (req) => handleDeleteFile(req, env));
 
     // 404
     router.add('ALL', '/*', () => {
