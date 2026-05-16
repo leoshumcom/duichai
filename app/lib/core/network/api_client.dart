@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 
 /// API 基础配置
 class ApiClient {
-  static const String _baseUrl = 'https://duichai-api.duichai.workers.dev';
+  static const String _baseUrl = 'https://api.duichai.com';
 
   late final Dio _dio;
 
@@ -55,3 +55,4 @@ class ApiClient {
     _dio.options.headers.remove('Authorization');
   }
 }
+
