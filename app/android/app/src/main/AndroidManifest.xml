@@ -32,7 +32,7 @@
         <!-- 高德地图 API Key -->
         <meta-data
             android:name="com.amap.api.v2.apikey"
-            android:value="f073e6e3b08e43d4a8383ba702bd7bab" />
+            android:value="6621bc30165577b4eb8fec2fa8a0312f" />
 
         <meta-data
             android:name="flutterEmbedding"

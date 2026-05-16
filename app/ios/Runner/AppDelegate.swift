@@ -8,7 +8,7 @@ import UIKit
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     // 高德地图 API Key 配置
-    AMapServices.shared().apiKey = "f073e6e3b08e43d4a8383ba702bd7bab"
+    AMapServices.shared().apiKey = "a8fae39807fffe6867edfd51bd0a46f5"
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
