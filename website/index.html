@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>堆柴 — 众人拾柴火焰高</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: #FFF8F0;
+            color: #1A1A1A;
+            overflow-x: hidden;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+        /* Hero */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 80px 24px;
+            background: linear-gradient(180deg, #FFF8F0 0%, #FFE8D0 100%);
+            position: relative;
+        }
+        .hero::before {
+            content: "🔥";
+            position: absolute;
+            top: 60px;
+            font-size: 80px;
+            opacity: 0.15;
+            animation: float 6s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        .hero-logo {
+            font-size: 64px;
+            font-weight: 800;
+            color: #FF6B35;
+            letter-spacing: 4px;
+            margin-bottom: 16px;
+        }
+        .hero-tagline {
+            font-size: 22px;
+            color: #8B4513;
+            margin-bottom: 12px;
+            font-weight: 500;
+        }
+        .hero-slogan {
+            font-size: 28px;
+            color: #FF6B35;
+            font-weight: 700;
+            margin-bottom: 24px;
+        }
+        .hero-desc {
+            font-size: 16px;
+            color: #666;
+            max-width: 500px;
+            line-height: 1.8;
+            margin-bottom: 48px;
+        }
+        .download-buttons {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .btn-download {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 36px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .btn-download:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255,107,53,0.3); }
+        .btn-ios {
+            background: #1A1A1A;
+            color: #fff;
+        }
+        .btn-android {
+            background: #FF6B35;
+            color: #fff;
+        }
+        .btn-android:hover { background: #e85a28; }
+        .btn-ios:hover { background: #333; }
+        .btn-icon { font-size: 24px; }
+
+        /* 特点 */
+        .features {
+            padding: 100px 24px;
+            background: #fff;
+        }
+        .features h2 {
+            text-align: center;
+            font-size: 32px;
+            color: #FF6B35;
+            margin-bottom: 60px;
+        }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .feature-card {
+            text-align: center;
+            padding: 32px 24px;
+            border-radius: 16px;
+            background: #FFF8F0;
+            transition: all 0.3s ease;
+        }
+        .feature-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(255,107,53,0.1); }
+        .feature-icon { font-size: 48px; margin-bottom: 16px; }
+        .feature-card h3 { font-size: 20px; color: #1A1A1A; margin-bottom: 12px; }
+        .feature-card p { font-size: 14px; color: #666; line-height: 1.7; }
+
+        /* 数据 */
+        .stats {
+            padding: 80px 24px;
+            background: linear-gradient(135deg, #FF6B35, #FF4500);
+            color: #fff;
+            text-align: center;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .stat-item .stat-number {
+            font-size: 48px;
+            font-weight: 800;
+        }
+        .stat-item .stat-label {
+            font-size: 16px;
+            opacity: 0.9;
+            margin-top: 8px;
+        }
+
+        /* Footer */
+        .footer {
+            padding: 40px 24px;
+            text-align: center;
+            background: #1A1A1A;
+            color: #999;
+            font-size: 14px;
+        }
+        .footer a { color: #FF6B35; text-decoration: none; }
+
+        /* Coming Soon 状态 */
+        .coming-soon {
+            display: inline-block;
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        /* 响应式 */
+        @media (max-width: 640px) {
+            .hero-logo { font-size: 48px; }
+            .hero-slogan { font-size: 22px; }
+            .download-buttons { flex-direction: column; align-items: center; }
+            .btn-download { width: 100%; max-width: 280px; justify-content: center; }
+            .stat-item .stat-number { font-size: 36px; }
+        }
+    </style>
+</head>
+<body>
+
+<section class="hero">
+    <div class="hero-logo">堆柴</div>
+    <div class="hero-tagline">DuiChai</div>
+    <div class="hero-slogan">🔥 众人拾柴火焰高</div>
+    <p class="hero-desc">
+        发现你身边的运动场地，分享运动热爱。<br/>
+        和大家一起把喜欢的场地堆旺。
+    </p>
+    <div class="download-buttons">
+        <a href="#" class="btn-download btn-ios">
+            <span class="btn-icon">🍎</span>
+            <span>iPhone 版<span class="coming-soon"><br/>即将上线</span></span>
+        </a>
+        <a href="#" class="btn-download btn-android">
+            <span class="btn-icon">📱</span>
+            <span>Android 版<span class="coming-soon"><br/>即将上线</span></span>
+        </a>
+    </div>
+</section>
+
+<section class="features">
+    <div class="container">
+        <h2>为什么选择堆柴？</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">📍</div>
+                <h3>发现身边场地</h3>
+                <p>打开地图，看看附近有哪些运动场地。篮球、足球、羽毛球… 你能想到的运动，这里都有。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📸</div>
+                <h3>分享运动热爱</h3>
+                <p>拍下场地照片和视频，分享给同好。你分享的每一处场地，都在帮助更多人找到运动的地方。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔥</div>
+                <h3>众人拾柴火焰高</h3>
+                <p>为你喜欢的场地添一把柴火。柴火越多，场地越旺，排名越高。一起把好场地堆上去。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🏟</div>
+                <h3>加入俱乐部</h3>
+                <p>找到志同道合的球友，创建或加入俱乐部。约球、约赛，让运动不再孤单。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🏆</div>
+                <h3>榜单排名</h3>
+                <p>场地有排名，俱乐部有排名。看看你周边的热门场地，为家乡的运动地标添把火。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>干净纯粹</h3>
+                <p>没有花哨的功能，没有烦人的广告。聚焦运动场地，让运动回归纯粹。</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="stats">
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number">0</div>
+                <div class="stat-label">场地收录</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">0</div>
+                <div class="stat-label">运动爱好者</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">0</div>
+                <div class="stat-label">俱乐部</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">0</div>
+                <div class="stat-label">根柴火</div>
+            </div>
+        </div>
+        <p style="margin-top: 32px; opacity: 0.8; font-size: 14px;">数据从 APP 上线第一天开始计算</p>
+    </div>
+</section>
+
+<footer class="footer">
+    <div class="container">
+        <p>© 2026 堆柴 DuiChai · 众人拾柴火焰高</p>
+        <p style="margin-top: 8px;">
+            <a href="mailto:hi@duichai.com">hi@duichai.com</a>
+        </p>
+    </div>
+</footer>
+
+</body>
+</html>
