@@ -1,0 +1,15 @@
+{
+  "name": "duichai-api",
+  "version": "0.1.0",
+  "description": "堆柴 API - Cloudflare Workers",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute duichai-db --file=src/db/schema.sql",
+    "db:seed": "wrangler d1 execute duichai-db --file=src/db/seed.sql"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.0.0",
+    "wrangler": "^4.0.0"
+  }
+}
