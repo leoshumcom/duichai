@@ -31,3 +31,6 @@ app/android/local.properties
 # Python
 __pycache__/
 *.pyc
+
+# APK нд╪Ч
+*.apk

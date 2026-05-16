@@ -8,7 +8,6 @@ import 'features/profile/profile_page.dart';
 import 'features/venue/publish_venue_page.dart';
 import 'features/venue/venue_detail_page.dart';
 import 'features/club/club_page.dart';
-import 'features/map/map_page.dart';
 import 'features/payment/recharge_page.dart';
 
 void main() {
@@ -47,7 +46,6 @@ class DuichaiApp extends StatelessWidget {
           venueId: ModalRoute.of(ctx)!.settings.arguments as String,
         ),
         '/club/create': (ctx) => const CreateClubPage(),
-        '/map': (ctx) => const MapPage(),
         '/recharge': (ctx) => const RechargePage(),
       },
     );
@@ -273,5 +271,8 @@ class _DiscoverPageState extends State<DiscoverPage> {
 class VenueMapPage extends StatelessWidget {
   const VenueMapPage({super.key});
   @override
-  Widget build(BuildContext context) => const MapPage();
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('地图找场')),
+    body: const Center(child: Text('地图模块待接入')),
+  );
 }

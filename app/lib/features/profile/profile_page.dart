@@ -4,14 +4,12 @@ import '../../core/theme/app_theme.dart';
 import '../../core/network/api_client.dart';
 import '../auth/auth_page.dart';
 
-/// 个人中心页面
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-
     if (!auth.isLoggedIn) {
       return Scaffold(
         appBar: AppBar(title: const Text('我的')),
@@ -21,7 +19,7 @@ class ProfilePage extends StatelessWidget {
             children: [
               Icon(Icons.person_outline, size: 80, color: Colors.grey.shade300),
               const SizedBox(height: 16),
-              const Text('登录后查看更多', style: TextStyle(fontSize: 16, color: Colors.grey)),
+              Text('登录后查看更多', style: TextStyle(fontSize: 16, color: Colors.grey.shade500)),
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: () => Navigator.pushNamed(context, '/login'),
@@ -41,7 +39,6 @@ class ProfilePage extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // 用户信息头部
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -60,77 +57,51 @@ class ProfilePage extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            user?['nickname'] ?? '',
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                          ),
+                          Text(user?['nickname'] ?? '',
+                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),
-                          Text(
-                            user?['email'] ?? '',
-                            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                          ),
+                          Text(user?['email'] ?? '',
+                              style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                           const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              _buildLevelBadge(user?['level'] ?? 1),
-                              const SizedBox(width: 8),
-                              if (user?['role'] == 'owner')
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primary.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text('馆主', style: TextStyle(fontSize: 12, color: AppTheme.primary)),
-                                ),
-                            ],
-                          ),
+                          Row(children: [
+                            _buildBadge('Lv.${user?['level'] ?? 1}'),
+                            const SizedBox(width: 8),
+                            if (user?['role'] == 'owner')
+                              _buildBadge('馆主', bg: AppTheme.primary.withOpacity(0.1), fg: AppTheme.primary),
+                          ]),
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined),
-                      onPressed: () {},
-                    ),
+                    IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () {}),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
-
-            // 柴火卡片
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Row(
                   children: [
-                    _buildStatItem('🔥', '${user?['chaihuo_balance'] ?? 0}', '柴火余额'),
+                    _statItem('🔥', '${user?['chaihuo_balance'] ?? 0}', '柴火余额'),
                     const SizedBox(width: 32),
-                    _buildStatItem('📈', 'Lv.${user?['level'] ?? 1}', '用户等级'),
+                    _statItem('📈', 'Lv.${user?['level'] ?? 1}', '用户等级'),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 24),
-
-            // 功能菜单
-            _buildMenuItem(context, Icons.local_fire_department, '我的添柴', () {}),
-            _buildMenuItem(context, Icons.stadium_outlined, '我发布的场地', () {}),
-            _buildMenuItem(context, Icons.groups_outlined, '我的俱乐部', () {}),
-            _buildMenuItem(context, Icons.star_outline, '我的勋章', () {}),
-            _buildMenuItem(context, Icons.invite, '邀请好友', () {}),
-            _buildMenuItem(context, Icons.settings_outlined, '设置', () {}),
-
+            _menuItem(Icons.local_fire_department, '我的添柴', () {}),
+            _menuItem(Icons.stadium_outlined, '我发布的场地', () {}),
+            _menuItem(Icons.groups_outlined, '我的俱乐部', () {}),
+            _menuItem(Icons.star_outline, '我的勋章', () {}),
+            _menuItem(Icons.person_add_alt_1, '邀请好友', () {}),
+            _menuItem(Icons.settings_outlined, '设置', () {}),
             const SizedBox(height: 24),
-
-            // 退出登录
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: () {
-                  auth.logout();
-                  Navigator.pushReplacementNamed(context, '/home');
-                },
+                onPressed: () { auth.logout(); Navigator.pushReplacementNamed(context, '/home'); },
                 style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
                 child: const Text('退出登录'),
               ),
@@ -141,18 +112,18 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildLevelBadge(int level) {
+  Widget _buildBadge(String text, {Color? bg, Color? fg}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: AppTheme.primary,
+        color: bg ?? AppTheme.primary,
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text('Lv.$level', style: const TextStyle(fontSize: 12, color: Colors.white)),
+      child: Text(text, style: TextStyle(fontSize: 12, color: fg ?? Colors.white)),
     );
   }
 
-  Widget _buildStatItem(String icon, String value, String label) {
+  Widget _statItem(String icon, String value, String label) {
     return Column(
       children: [
         Text(icon, style: const TextStyle(fontSize: 24)),
@@ -163,7 +134,7 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuItem(BuildContext context, IconData icon, String title, VoidCallback onTap) {
+  Widget _menuItem(IconData icon, String title, VoidCallback onTap) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(

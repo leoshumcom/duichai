@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import '../../core/theme/app_theme.dart';
 
-/// 充值页面
 class RechargePage extends StatefulWidget {
-  final bool isAdPurchase; // true=购买置顶广告, false=普通充值
+  final bool isAdPurchase;
   const RechargePage({super.key, this.isAdPurchase = false});
 
   @override
@@ -25,39 +24,21 @@ class _RechargePageState extends State<RechargePage> {
   ];
 
   Future<void> _recharge() async {
-    if (_selectedAmount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请选择充值金额')),
-      );
-      return;
-    }
-
-    setState(() {}); // loading state
-
-    try {
-      // 调用第三方支付平台 API 生成支付二维码
-      // TODO: 对接 XorPay/PayJS 等第三方支付
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('跳转支付中... 金额: ¥${_selectedAmount / 10}')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('支付失败，请重试')),
-      );
-    }
+    if (_selectedAmount <= 0) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('跳转支付中... 金额: ${_selectedAmount ~/ 10}元')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final title = widget.isAdPurchase ? '购买置顶' : '充值柴火';
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.isAdPurchase ? '购买置顶' : '充值柴火'),
-      ),
+      appBar: AppBar(title: Text(title)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // 当前余额
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -68,7 +49,7 @@ class _RechargePageState extends State<RechargePage> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('当前柴火', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                        Text('当前柴火', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
                         const Text('-- 根', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                       ],
                     ),
@@ -77,16 +58,13 @@ class _RechargePageState extends State<RechargePage> {
               ),
             ),
             const SizedBox(height: 24),
-
             if (!widget.isAdPurchase) ...[
               const Text('选择充值套餐', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              const Text('1元 = 10根柴火', style: TextStyle(color: Colors.grey, fontSize: 13)),
+              Text('1元 = 10根柴火', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
               const SizedBox(height: 16),
-
-              // 套餐选择
               ..._packages.map((pkg) {
-                final isSelected = _selectedAmount == (pkg['price'] as int);
+                final isSelected = _selectedAmount == pkg['price'] as int;
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   child: InkWell(
@@ -110,7 +88,7 @@ class _RechargePageState extends State<RechargePage> {
                                   children: [
                                     Text(pkg['label'] as String,
                                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                    if (pkg['bonus'] as int > 0)
+                                    if ((pkg['bonus'] as int) > 0)
                                       Container(
                                         margin: const EdgeInsets.only(left: 8),
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -123,9 +101,8 @@ class _RechargePageState extends State<RechargePage> {
                                       ),
                                   ],
                                 ),
-                                const SizedBox(height: 4),
                                 Text(
-                                  '¥${pkg['price'] ~/ 10}',
+                                  '${(pkg['price'] as int) ~/ 10}元',
                                   style: const TextStyle(fontSize: 20, color: AppTheme.primary, fontWeight: FontWeight.bold),
                                 ),
                               ],
@@ -147,26 +124,16 @@ class _RechargePageState extends State<RechargePage> {
                 );
               }),
             ],
-
             const SizedBox(height: 24),
-
-            // 支付按钮
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: _selectedAmount > 0 ? _recharge : null,
                 icon: const Icon(Icons.payment),
-                label: Text(
-                  widget.isAdPurchase
-                      ? '去支付 ¥${_selectedAmount ~/ 10}'
-                      : '充值 $_selectedAmount 根柴火',
-                ),
+                label: Text(widget.isAdPurchase ? '去支付' : '充值 $_selectedAmount 根柴火'),
               ),
             ),
-
             const SizedBox(height: 16),
-
-            // 支付说明
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -178,9 +145,9 @@ class _RechargePageState extends State<RechargePage> {
                 children: [
                   Text('支付说明', style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 8),
-                  Text('• 充值通过第三方支付平台完成', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                  Text('• 柴火到账后不可退款', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                  Text('• 如有问题请联系客服', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                  Text('充值通过第三方支付平台完成', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                  Text('柴火到账后不可退款', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                  Text('如有问题请联系客服', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                 ],
               ),
             ),
