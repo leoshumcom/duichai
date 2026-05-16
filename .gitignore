@@ -25,6 +25,9 @@ app/ios/.symlinks/
 app/android/.gradle/
 app/android/local.properties
 
+# Wrangler
+.wrangler/
+
 # Python
 __pycache__/
 *.pyc
