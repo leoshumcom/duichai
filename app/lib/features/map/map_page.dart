@@ -37,7 +37,7 @@ class _MapPageState extends State<MapPage> {
   Future<void> _searchNearby() async {
     try {
       final res = await _api.get('/place/around', queryParameters: {
-        'key': 'AMAP_API_KEY', // 需要替换为实际Key
+        'key': 'f073e6e3b08e43d4a8383ba702bd7bab'
         'location': '$_lng,$_lat',
         'radius': '5000',
         'types': '运动场馆|体育休闲',
