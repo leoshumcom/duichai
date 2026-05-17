@@ -1,8 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/network/api_client.dart';
 
-/// 俱乐部详情页
 class ClubDetailPage extends StatefulWidget {
   final String clubId;
   const ClubDetailPage({super.key, required this.clubId});
@@ -16,6 +15,8 @@ class _ClubDetailPageState extends State<ClubDetailPage> {
   Map<String, dynamic>? _club;
   bool _loading = true;
   String? _error;
+  int _memberPage = 1;
+  bool _loadingMembers = false;
 
   @override
   void initState() {
@@ -25,14 +26,38 @@ class _ClubDetailPageState extends State<ClubDetailPage> {
 
   Future<void> _loadClub() async {
     try {
-      final res = await _api.get('/api/clubs/${widget.clubId}');
+      final res = await _api.get('/api/clubs/${widget.clubId}', params: {
+        'page': _memberPage.toString(), 'limit': '20',
+      });
       if (res['success'] == true && res['data'] != null) {
         setState(() { _club = res['data']; _loading = false; });
       } else {
         setState(() { _error = res['error']; _loading = false; });
       }
     } catch (_) {
-      if (mounted) setState(() { _error = '加载失败'; _loading = false; });
+      if (mounted) setState(() { _error = 'load failed'; _loading = false; });
+    }
+  }
+
+  Future<void> _loadMoreMembers() async {
+    setState(() => _loadingMembers = true);
+    try {
+      final nextPage = _memberPage + 1;
+      final res = await _api.get('/api/clubs/${widget.clubId}', params: {
+        'page': nextPage.toString(), 'limit': '20',
+      });
+      if (res['success'] == true && res['data'] != null) {
+        final existing = (_club!['members'] as List).cast<Map<String, dynamic>>();
+        final newMembers = (res['data']['members'] as List).cast<Map<String, dynamic>>();
+        setState(() {
+          _club!['members'] = [...existing, ...newMembers];
+          _club!['member_count'] = res['data']['member_count'] ?? _club!['member_count'];
+          _memberPage = nextPage;
+          _loadingMembers = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingMembers = false);
     }
   }
 
@@ -40,20 +65,21 @@ class _ClubDetailPageState extends State<ClubDetailPage> {
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('俱乐部详情')),
+        appBar: AppBar(title: const Text('Club')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
     if (_error != null || _club == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('俱乐部详情')),
-        body: Center(child: Text(_error ?? '俱乐部不存在')),
+        appBar: AppBar(title: const Text('Club')),
+        body: Center(child: Text(_error ?? 'Not found')),
       );
     }
 
     final c = _club!;
     final sportTypes = (c['sport_types'] as List?)?.cast<String>() ?? [];
     final members = (c['members'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final totalMembers = c['member_count'] ?? members.length;
 
     return Scaffold(
       body: CustomScrollView(
@@ -72,7 +98,7 @@ class _ClubDetailPageState extends State<ClubDetailPage> {
                 ),
                 child: Center(
                   child: Text(
-                    (c['name'] ?? '俱乐部').toString().substring(0, 1),
+                    (c['name'] ?? 'C').toString().substring(0, 1).toUpperCase(),
                     style: const TextStyle(fontSize: 64, color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -91,23 +117,9 @@ class _ClubDetailPageState extends State<ClubDetailPage> {
                         child: Text(c['name'] ?? '', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                       ),
                       if (c['is_certified'] == true)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text('已认证', style: TextStyle(fontSize: 12, color: Colors.blue.shade700)),
-                        )
+                        _badge('Certified')
                       else
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text('待审核', style: TextStyle(fontSize: 12, color: Colors.orange.shade700)),
-                        ),
+                        _badge('Pending'),
                     ],
                   ),
                   if (c['slogan'] != null) ...[
@@ -129,27 +141,38 @@ class _ClubDetailPageState extends State<ClubDetailPage> {
                     Text(c['description'], style: const TextStyle(fontSize: 14, height: 1.5)),
                     const SizedBox(height: 16),
                   ],
-                  // 统计信息
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Row(
                         children: [
-                          _statItem(Icons.people, '${c['member_count'] ?? 0}', '成员'),
+                          _statItem(Icons.people, '${totalMembers}', 'Members'),
                           const SizedBox(width: 32),
-                          _statItem(Icons.local_fire_department, '${c['chaihuo_total'] ?? 0}', '柴火'),
+                          _statItem(Icons.local_fire_department, '${c['chaihuo_total'] ?? 0}', 'Chaihuo'),
                           const SizedBox(width: 32),
-                          _statItem(Icons.sports, '${sportTypes.length}', '项目'),
+                          _statItem(Icons.sports, '${sportTypes.length}', 'Sports'),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // 成员列表
+                  // Members section
                   if (members.isNotEmpty) ...[
-                    const Text('成员', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Members ($totalMembers)', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        if (_loadingMembers)
+                          const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        else if (members.length < totalMembers)
+                          TextButton(
+                            onPressed: _loadMoreMembers,
+                            child: const Text('Show all >', style: TextStyle(fontSize: 13)),
+                          ),
+                      ],
+                    ),
                     const SizedBox(height: 8),
-                    ...members.map((m) => ListTile(
+                    ...(members.length > 10 ? members.sublist(0, 10) : members).map((m) => ListTile(
                       leading: CircleAvatar(
                         radius: 18,
                         backgroundColor: m['role'] == 'creator' ? AppTheme.primary : Colors.grey.shade300,
@@ -158,10 +181,20 @@ class _ClubDetailPageState extends State<ClubDetailPage> {
                           style: const TextStyle(fontSize: 14, color: Colors.white),
                         ),
                       ),
-                      title: Text(m['nickname'] ?? '用户'),
-                      subtitle: m['role'] == 'creator' ? const Text('创建者', style: TextStyle(fontSize: 12)) : null,
+                      title: Text(m['nickname'] ?? 'User'),
+                      subtitle: m['role'] == 'creator'
+                          ? const Text('Creator', style: TextStyle(fontSize: 12, color: AppTheme.primary))
+                          : null,
                       dense: true,
                     )),
+                    if (members.length < totalMembers && members.length > 10)
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: _loadMoreMembers,
+                          icon: const Icon(Icons.expand_more),
+                          label: Text('Show ${totalMembers - members.length} more'),
+                        ),
+                      ),
                   ],
                   const SizedBox(height: 32),
                 ],
@@ -170,6 +203,19 @@ class _ClubDetailPageState extends State<ClubDetailPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _badge(String text) {
+    final bool certified = text == 'Certified';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: certified ? Colors.blue.shade50 : Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(4)),
+      child: Text(text, style: TextStyle(
+        fontSize: 12,
+        color: certified ? Colors.blue.shade700 : Colors.orange.shade700)),
     );
   }
 
@@ -184,3 +230,4 @@ class _ClubDetailPageState extends State<ClubDetailPage> {
     );
   }
 }
+

@@ -143,3 +143,89 @@ export async function handleMyInvites(request: Request, env: Env): Promise<Respo
     },
   });
 }
+
+/// 通知列表
+export async function handleNotifications(request: Request, env: Env): Promise<Response> {
+  const userId = await getUserId(request, env);
+  if (!userId) return jsonResponse({ error: "未登录" }, 401);
+
+  const url = new URL(request.url);
+  const page = parseInt(url.searchParams.get("page") || "1");
+  const limit = parseInt(url.searchParams.get("limit") || "20");
+  const offset = (page - 1) * limit;
+
+  const notifications: any[] = await env.duichai_db.prepare(
+    "SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
+  ).bind(userId, limit, offset).all();
+
+  const unreadCount: any = await env.duichai_db.prepare(
+    "SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0"
+  ).bind(userId).first();
+
+  return jsonResponse({
+    success: true,
+    data: notifications.results,
+    unread_count: unreadCount?.count || 0,
+    page, limit,
+  });
+}
+
+/// 标记通知已读
+export async function handleMarkRead(request: Request, env: Env): Promise<Response> {
+  const userId = await getUserId(request, env);
+  if (!userId) return jsonResponse({ error: "未登录" }, 401);
+
+  const body: any = await request.json();
+  const { notification_id } = body;
+
+  if (notification_id) {
+    await env.duichai_db.prepare(
+      "UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?"
+    ).bind(notification_id, userId).run();
+  } else {
+    await env.duichai_db.prepare(
+      "UPDATE notifications SET is_read = 1 WHERE user_id = ?"
+    ).bind(userId).run();
+  }
+
+  return jsonResponse({ success: true });
+}
+
+/// 更新头像
+export async function handleUpdateAvatar(request: Request, env: Env): Promise<Response> {
+  const userId = await getUserId(request, env);
+  if (!userId) return jsonResponse({ error: "未登录" }, 401);
+
+  const body: any = await request.json();
+  const { avatar_url } = body;
+
+  if (!avatar_url) return jsonResponse({ error: "avatar_url 为必填" }, 400);
+
+  await env.duichai_db.prepare(
+    "UPDATE users SET avatar = ?, updated_at = datetime('now') WHERE id = ?"
+  ).bind(avatar_url, userId).run();
+
+  return jsonResponse({ success: true, avatar_url });
+}
+
+/// 更新用户资料
+export async function handleUpdateProfile(request: Request, env: Env): Promise<Response> {
+  const userId = await getUserId(request, env);
+  if (!userId) return jsonResponse({ error: "未登录" }, 401);
+
+  const body: any = await request.json();
+  const { nickname, phone } = body;
+
+  if (nickname) {
+    await env.duichai_db.prepare(
+      "UPDATE users SET nickname = ?, updated_at = datetime('now') WHERE id = ?"
+    ).bind(nickname, userId).run();
+  }
+  if (phone !== undefined) {
+    await env.duichai_db.prepare(
+      "UPDATE users SET phone = ?, updated_at = datetime('now') WHERE id = ?"
+    ).bind(phone, userId).run();
+  }
+
+  return jsonResponse({ success: true });
+}

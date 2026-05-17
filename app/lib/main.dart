@@ -10,6 +10,7 @@ import 'features/venue/venue_detail_page.dart';
 import 'features/club/club_page.dart';
 import 'features/club/club_detail_page.dart';
 import 'features/map/map_page.dart';
+import 'features/profile/notifications_page.dart';
 import 'features/payment/recharge_page.dart';
 
 void main() async {
@@ -105,6 +106,9 @@ class _DiscoverPageState extends State<DiscoverPage> {
   final _api = ApiClient();
   List<dynamic> _venues = [];
   bool _loading = true;
+  String _city = '全国';
+  String _selectedType = '';
+  String _sort = 'chaihuo';
 
   @override
   void initState() {
@@ -114,13 +118,67 @@ class _DiscoverPageState extends State<DiscoverPage> {
 
   Future<void> _loadVenues() async {
     try {
-      final res = await _api.get('/api/venues', params: {'sort': 'chaihuo', 'limit': '20'});
+      final params = <String, String>{'sort': _sort, 'limit': '20'};
+      if (_selectedType.isNotEmpty) params['type'] = _selectedType;
+      final res = await _api.get('/api/venues', params: params);
       if (res['success'] == true && res['data'] != null) {
         setState(() { _venues = res['data'] as List<dynamic>; _loading = false; });
       }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _showFilterDialog(BuildContext context) {
+    String tempType = _selectedType;
+    String tempSort = _sort;
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('筛选', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              const Text('运动类型', style: TextStyle(fontSize: 14, color: Colors.grey)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8, runSpacing: 8,
+                children: ['', '篮球', '足球', '羽毛球', '网球', '乒乓球', '跑步', '游泳', '滑板', '健身', '其他'].map((t) => ChoiceChip(
+                  label: Text(t.isEmpty ? '全部' : t, style: const TextStyle(fontSize: 13)),
+                  selected: tempType == t,
+                  onSelected: (v) => setSheetState(() => tempType = v ? t : ''),
+                )).toList(),
+              ),
+              const SizedBox(height: 16),
+              const Text('排序', style: TextStyle(fontSize: 14, color: Colors.grey)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [['chaihuo', '🔥 柴火最多'], ['newest', '🆕 最新发布'], ['distance', '📍 距离最近']].map((opt) => ChoiceChip(
+                  label: Text(opt[1]),
+                  selected: tempSort == opt[0],
+                  onSelected: (v) => setSheetState(() => tempSort = opt[0]),
+                )).toList(),
+              ),
+              const SizedBox(height: 24),
+              Row(children: [
+                Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消'))),
+                const SizedBox(width: 12),
+                Expanded(child: ElevatedButton(onPressed: () {
+                  Navigator.pop(ctx);
+                  setState(() { _selectedType = tempType; _sort = tempSort; });
+                  _loadVenues();
+                }, child: const Text('确定'))),
+              ]),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -134,9 +192,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
             TextButton(onPressed: () => Navigator.pushNamed(context, '/login'), child: const Text('登录'))
           else
             IconButton(icon: const Icon(Icons.notifications_outlined), onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('通知功能即将上线'), duration: Duration(seconds: 1)),
-              );
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsPage()));
             }),
         ],
       ),
@@ -154,12 +210,8 @@ class _DiscoverPageState extends State<DiscoverPage> {
                         hintText: '搜索场地、俱乐部...',
                         prefixIcon: const Icon(Icons.search),
                         suffixIcon: IconButton(
-                          icon: const Icon(Icons.tune),
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('筛选功能即将上线'), duration: Duration(seconds: 1)),
-                            );
-                          },
+                          icon: Icon(Icons.tune, color: _selectedType.isNotEmpty ? AppTheme.primary : null),
+                          onPressed: () => _showFilterDialog(context),
                         ),
                       ),
                     ),
@@ -182,6 +234,35 @@ class _DiscoverPageState extends State<DiscoverPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    InkWell(
+                      onTap: () async {
+                        final cities = ['全国', '北京', '上海', '广州', '深圳', '杭州', '成都', '武汉', '南京', '重庆', '西安'];
+                        final result = await showDialog<String>(
+                          context: context,
+                          builder: (ctx) => SimpleDialog(
+                            title: const Text('选择城市'),
+                            children: cities.map((c) => SimpleDialogOption(
+                              onPressed: () => Navigator.pop(ctx, c),
+                              child: Text(c, style: TextStyle(
+                                fontSize: 16,
+                                color: c == _city ? AppTheme.primary : null,
+                                fontWeight: c == _city ? FontWeight.bold : null,
+                              )),
+                            )).toList(),
+                          ),
+                        );
+                        if (result != null) setState(() { _city = result; });
+                      },
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_on, size: 18, color: AppTheme.primary),
+                          const SizedBox(width: 4),
+                          Text(_city, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                          const Icon(Icons.arrow_drop_down, size: 20, color: Colors.grey),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
