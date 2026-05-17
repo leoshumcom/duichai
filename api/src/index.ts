@@ -10,7 +10,7 @@ import { handleRegister, handleLogin, handleGetUser, handleGetMe } from './route
 import { handleCreateVenue, handleGetVenue, handleSearchVenues, handleTipVenue, handleSupplementVenue } from './routes/venues';
 import { handleUpload, handleBatchUpload, handleDeleteFile } from './routes/upload';
 import { handleCreateClub, handleListClubs, handleGetClub, handleJoinClub } from './routes/clubs';
-import { handleDashboardStats, handleUserTrend, handleRankings } from './routes/admin';
+import { handleDashboardStats, handleUserTrend, handleRankings, handleAdminLogin, handleGrantChaihuo } from './routes/admin';
 import { handleMyTips, handleMyBadges, handleMyClubs, handleMyVenues, handleMyInvites, handleNotifications, handleMarkRead, handleUpdateAvatar, handleUpdateProfile } from './routes/profile';
 
 interface Env {
@@ -84,6 +84,8 @@ export default {
     router.add('POST', '/api/users/me/profile', async (req) => handleUpdateProfile(req, env));
 
     // ===== Admin =====
+    router.add('POST', '/api/admin/login', async (req) => handleAdminLogin(req, env));
+    router.add('POST', '/api/admin/grant-chaihuo', async (req) => handleGrantChaihuo(req, env));
     router.add('GET', '/api/admin/stats', async (req) => handleDashboardStats(req, env));
     router.add('GET', '/api/admin/trend', async (req) => handleUserTrend(req, env));
     router.add('GET', '/api/rankings', async (req) => handleRankings(req, env));
