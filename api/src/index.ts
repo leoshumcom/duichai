@@ -11,6 +11,7 @@ import { handleCreateVenue, handleGetVenue, handleSearchVenues, handleTipVenue, 
 import { handleUpload, handleBatchUpload, handleDeleteFile } from './routes/upload';
 import { handleCreateClub, handleListClubs, handleGetClub, handleJoinClub } from './routes/clubs';
 import { handleDashboardStats, handleUserTrend, handleRankings } from './routes/admin';
+import { handleMyTips, handleMyBadges, handleMyClubs, handleMyVenues, handleMyInvites } from './routes/profile';
 
 interface Env {
   duichai_db: D1Database;
@@ -70,6 +71,13 @@ export default {
     router.add('GET', '/api/clubs', async (req) => handleListClubs(req, env));
     router.add('GET', '/api/clubs/:id', async (req, params) => handleGetClub(req, env, params.id));
     router.add('POST', '/api/clubs/join', async (req) => handleJoinClub(req, env));
+
+    // ===== 个人中心 =====
+    router.add('GET', '/api/users/me/tips', async (req) => handleMyTips(req, env));
+    router.add('GET', '/api/users/me/badges', async (req) => handleMyBadges(req, env));
+    router.add('GET', '/api/users/me/clubs', async (req) => handleMyClubs(req, env));
+    router.add('GET', '/api/users/me/venues', async (req) => handleMyVenues(req, env));
+    router.add('GET', '/api/users/me/invites', async (req) => handleMyInvites(req, env));
 
     // ===== 管理后台 =====
     router.add('GET', '/api/admin/stats', async (req) => handleDashboardStats(req, env));

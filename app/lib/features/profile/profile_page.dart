@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/network/api_client.dart';
 import '../auth/auth_page.dart';
+import 'my_tips_page.dart';
+import 'badges_page.dart';
+import 'invite_page.dart';
+import 'settings_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -162,7 +165,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 24),
             _menuItem(Icons.local_fire_department, '我的添柴', () {
-              _showComingSoon(context, '我的添柴');
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const MyTipsPage()));
             }),
             _menuItem(Icons.stadium_outlined, '我发布的场地', () {
               Navigator.pushNamed(context, '/venue/list');
@@ -171,13 +174,13 @@ class _ProfilePageState extends State<ProfilePage> {
               Navigator.pushNamed(context, '/club/create');
             }),
             _menuItem(Icons.star_outline, '我的勋章', () {
-              _showComingSoon(context, '我的勋章');
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const BadgesPage()));
             }),
             _menuItem(Icons.person_add_alt_1, '邀请好友', () {
-              _showComingSoon(context, '邀请好友');
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const InvitePage()));
             }),
             _menuItem(Icons.settings_outlined, '设置', () {
-              _showComingSoon(context, '设置');
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsPage()));
             }),
             const SizedBox(height: 24),
             SizedBox(
@@ -191,13 +194,6 @@ class _ProfilePageState extends State<ProfilePage> {
           ],
         ),
       ),
-    );
-  }
-
-  void _showComingSoon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$feature 即将上线', style: const TextStyle(color: Colors.white)),
-          backgroundColor: AppTheme.warmBrown, duration: const Duration(seconds: 1)),
     );
   }
 
