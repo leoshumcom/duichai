@@ -18,6 +18,7 @@ dependencies:
   geolocator: ^10.1.0
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
+  amap_flutter_map: ^3.0.0
 
   cached_network_image: ^3.3.0
   shimmer: ^3.0.0
@@ -32,6 +33,10 @@ dependencies:
   permission_handler: ^11.2.0
 
   in_app_purchase: ^3.1.0
+
+dependency_overrides:
+  amap_flutter_map:
+    path: C:/duichai/patched_plugins/amap_flutter_map
 
 dev_dependencies:
   flutter_test:
