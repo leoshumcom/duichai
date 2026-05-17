@@ -11,7 +11,7 @@ import { handleCreateVenue, handleGetVenue, handleSearchVenues, handleTipVenue, 
 import { handleUpload, handleBatchUpload, handleDeleteFile } from './routes/upload';
 import { handleCreateClub, handleListClubs, handleGetClub, handleJoinClub, handleJoinRequest, handleListJoinRequests, handleApproveJoinRequest, handleRejectJoinRequest } from './routes/clubs';
 import { handleSendClubMessage, handleGetClubMessages } from './routes/club_messages';
-import { handleDashboardStats, handleUserTrend, handleRankings, handleAdminLogin, handleGrantChaihuo } from './routes/admin';
+import { handleDashboardStats, handleUserTrend, handleRankings, handleAdminLogin, handleGrantChaihuo, handleAdminUsers, handleAdminVenues, handleAdminApproveVenue } from './routes/admin';
 import { handleMyTips, handleMyBadges, handleMyClubs, handleMyVenues, handleMyInvites, handleNotifications, handleMarkRead, handleUpdateAvatar, handleUpdateProfile } from './routes/profile';
 
 interface Env {
@@ -103,6 +103,9 @@ export default {
     router.add('GET', '/api/admin/stats', async (req) => handleDashboardStats(req, env));
     router.add('GET', '/api/admin/trend', async (req) => handleUserTrend(req, env));
     router.add('GET', '/api/rankings', async (req) => handleRankings(req, env));
+    router.add('GET', '/api/admin/users', async (req) => handleAdminUsers(req, env));
+    router.add('GET', '/api/admin/venues', async (req) => handleAdminVenues(req, env));
+    router.add('POST', '/api/admin/venues/:venueId/approve', async (req, params) => handleAdminApproveVenue(req, env, params.venueId));
 
     // 404
     router.add('ALL', '/*', () => {

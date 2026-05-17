@@ -16,7 +16,31 @@ class _MapPageState extends State<MapPage> {
   final MapController _mapController = MapController();
   List<Map<String, dynamic>> _venues = [];
   bool _loading = true;
+  bool _tileError = false;
   LatLng _center = const LatLng(39.9042, 116.4074);
+
+  // China-friendly tile providers (fallback chain)
+  static const List<_TileProvider> _tileProviders = [
+    // 1. 高德地图瓦片（国内可访问）
+    _TileProvider(
+      name: '高德地图',
+      url: 'https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+    ),
+    // 2. OpenStreetMap 中国大陆镜像（清华 TUNA）
+    _TileProvider(
+      name: 'OSM镜像',
+      url: 'https://mirrors.tuna.tsinghua.edu.cn/osm/tiles/{z}/{x}/{y}.png',
+    ),
+    // 3. OpenStreetMap 官方 tiles（fallback）
+    _TileProvider(
+      name: 'OpenStreetMap',
+      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    ),
+  ];
+
+  int _activeTileIndex = 0;
+
+  String get _activeTileUrl => _tileProviders[_activeTileIndex].url;
 
   @override
   void initState() {
@@ -33,6 +57,13 @@ class _MapPageState extends State<MapPage> {
       }
     } catch (_) {}
     _loadVenues();
+  }
+
+  void _retryTile() {
+    setState(() {
+      _tileError = false;
+      _activeTileIndex = (_activeTileIndex + 1) % _tileProviders.length;
+    });
   }
 
   Future<void> _loadVenues() async {
@@ -59,7 +90,7 @@ class _MapPageState extends State<MapPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Map'),
+        title: Text(_tileProviders[_activeTileIndex].name),
         actions: [
           IconButton(
             icon: const Icon(Icons.my_location),
@@ -73,10 +104,15 @@ class _MapPageState extends State<MapPage> {
                 }
               } catch (_) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Location failed'), duration: Duration(seconds: 1)),
+                  const SnackBar(content: Text('定位失败'), duration: Duration(seconds: 1)),
                 );
               }
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.map_outlined),
+            tooltip: '切换地图源',
+            onPressed: _retryTile,
           ),
         ],
       ),
@@ -87,9 +123,41 @@ class _MapPageState extends State<MapPage> {
             options: MapOptions(initialCenter: _center, initialZoom: 14),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate: _activeTileUrl,
                 userAgentPackageName: 'com.duichai.duichai',
+                errorImage: const Icon(Icons.map, color: Colors.grey),
               ),
+              if (_tileError)
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  right: 8,
+                  child: Material(
+                    elevation: 4,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.warning_amber, color: Colors.orange, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text('地图瓦片加载失败，点击右侧按钮切换地图源',
+                                style: const TextStyle(fontSize: 13)),
+                          ),
+                          TextButton(
+                            onPressed: _retryTile,
+                            child: const Text('切换', style: TextStyle(color: AppTheme.primary)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               MarkerLayer(
                 markers: _venues.map((v) {
                   final lat = (v['latitude'] as num?)?.toDouble() ?? 0;
@@ -133,6 +201,8 @@ class _MapPageState extends State<MapPage> {
                 ),
               ),
             ),
+          if (_loading)
+            const Center(child: CircularProgressIndicator()),
         ],
       ),
     );
@@ -180,4 +250,10 @@ class _MapPageState extends State<MapPage> {
       ),
     );
   }
+}
+
+class _TileProvider {
+  final String name;
+  final String url;
+  const _TileProvider({required this.name, required this.url});
 }

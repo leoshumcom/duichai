@@ -1,0 +1,11 @@
+name = "duichai-admin"
+main = "src/index.ts"
+compatibility_date = "2026-05-16"
+
+routes = [
+  { pattern = "admin.duichai.com", custom_domain = true }
+]
+
+[vars]
+APP_NAME = "堆柴 Admin"
+API_BASE = "https://api.duichai.com"

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/network/api_client.dart';
+import '../auth/auth_page.dart';
+import 'package:provider/provider.dart';
 
 class InvitePage extends StatefulWidget {
   const InvitePage({super.key});
@@ -13,6 +15,7 @@ class _InvitePageState extends State<InvitePage> {
   final _api = ApiClient();
   String _inviteCode = '';
   String _inviteLink = '';
+  int _uid = 0;
   int _inviteCount = 0;
   List<Map<String, dynamic>> _invites = [];
   bool _loading = true;
@@ -25,11 +28,17 @@ class _InvitePageState extends State<InvitePage> {
 
   Future<void> _load() async {
     try {
+      final auth = context.read<AuthProvider>();
+      final uid = auth.user?['uid'];
+      setState(() => _uid = uid ?? 0);
+
       final res = await _api.get('/api/users/me/invites');
       if (res['success'] == true && res['data'] != null) {
         setState(() {
-          _inviteCode = res['data']['invite_code'] ?? '';
-          _inviteLink = res['data']['invite_link'] ?? '';
+          // 邀请码 = UID数字
+          final code = res['data']['invite_code'] ?? '';
+          _inviteCode = code;
+          _inviteLink = 'https://duichai.com/invite/${_uid}';
           _inviteCount = res['data']['count'] ?? 0;
           _invites = (res['data']['invites'] as List?)?.cast<Map<String, dynamic>>() ?? [];
           _loading = false;
@@ -71,7 +80,7 @@ class _InvitePageState extends State<InvitePage> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text('我的邀请码：', style: TextStyle(color: Colors.grey.shade600)),
-                            SelectableText(_inviteCode, style: const TextStyle(
+                            SelectableText(_uid > 0 ? _uid.toString() : _inviteCode, style: const TextStyle(
                               fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.primary,
                               letterSpacing: 4,
                             )),
@@ -83,10 +92,14 @@ class _InvitePageState extends State<InvitePage> {
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           onPressed: () {
-                            Share.share('一起来玩堆柴吧！发现身边的运动场地，众人拾柴火焰高🔥\n我的邀请码: $_inviteCode\n下载地址: https://duichai.com');
+                            final code = _uid > 0 ? _uid.toString() : _inviteCode;
+                            Share.share('一起来玩堆柴吧！发现身边的运动场地，众人拾柴火焰高🔥\n'
+                                '我的邀请码: $code\n'
+                                '注册时输入邀请码，双方各得10根柴火🔥\n'
+                                '下载地址: https://duichai.com');
                           },
                           icon: const Icon(Icons.share),
-                          label: const Text('分享邀请链接'),
+                          label: const Text('分享邀请码'),
                         ),
                       ),
                     ],

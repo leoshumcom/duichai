@@ -6,10 +6,17 @@ interface Env {
 
 const ADMIN_MASTER_PASSWORD = 'duichai_admin_2026';
 
-async function getUserByEmail(env: Env, email: string): Promise<any> {
+async function getUserByEmailOrUid(env: Env, input: string): Promise<any> {
+  // 支持邮箱或UID查找
+  const uidNum = parseInt(input);
+  if (!isNaN(uidNum) && uidNum.toString() === input) {
+    return await env.duichai_db.prepare(
+      'SELECT id, email, nickname, chaihuo_balance, role, uid FROM users WHERE uid = ?'
+    ).bind(uidNum).first();
+  }
   return await env.duichai_db.prepare(
-    'SELECT id, email, nickname, chaihuo_balance, role FROM users WHERE email = ?'
-  ).bind(email).first();
+    'SELECT id, email, nickname, chaihuo_balance, role, uid FROM users WHERE email = ?'
+  ).bind(input).first();
 }
 
 // Admin login
@@ -22,16 +29,21 @@ export async function handleAdminLogin(request: Request, env: Env): Promise<Resp
       return jsonResponse({ error: 'Wrong password' }, 401);
     }
 
-    let user: any = await getUserByEmail(env, email || '');
+    let user: any = await getUserByEmailOrUid(env, email || '');
     if (!user) return jsonResponse({ error: 'User not found' }, 404);
 
-    if (user.role !== 'admin') {
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
       await env.duichai_db.prepare(
         "UPDATE users SET role = 'admin' WHERE id = ?"
       ).bind(user.id).run();
-      await env.duichai_db.prepare(
-        'INSERT OR IGNORE INTO admin_users (id, role) VALUES (?, ?)'
-      ).bind(user.id, 'super_admin').run();
+      const existingAdmin: any = await env.duichai_db.prepare(
+        'SELECT id FROM admin_users WHERE id = ?'
+      ).bind(user.id).first();
+      if (!existingAdmin) {
+        await env.duichai_db.prepare(
+          'INSERT INTO admin_users (id, role) VALUES (?, ?)'
+        ).bind(user.id, 'super_admin').run();
+      }
       user.role = 'admin';
     }
 
@@ -71,7 +83,7 @@ export async function handleGrantChaihuo(request: Request, env: Env): Promise<Re
     const { email, amount, reason } = body;
     if (!email || !amount || amount < 1) return jsonResponse({ error: 'email and amount required' }, 400);
 
-    const user: any = await getUserByEmail(env, email);
+    const user: any = await getUserByEmailOrUid(env, email);
     if (!user) return jsonResponse({ error: 'User not found' }, 404);
 
     const newBalance = (user.chaihuo_balance || 0) + amount;
@@ -96,7 +108,7 @@ export async function handleDashboardStats(request: Request, env: Env): Promise<
   try {
     const [totalUsers, dauResult, totalVenues, totalClubs, chaihuoStats, pendingStats] = await Promise.all([
       env.duichai_db.prepare('SELECT COUNT(*) as count FROM users').first(),
-      env.duichai_db.prepare("SELECT COUNT(*) as count FROM users WHERE datetime(created_at) > datetime('now', '-1 day')").first(),
+      env.duichai_db.prepare("SELECT COUNT(DISTINCT user_id) as count FROM sessions WHERE datetime(created_at) > datetime('now', '-1 day')").first(),
       env.duichai_db.prepare("SELECT COUNT(*) as count FROM venues WHERE status = 'approved'").first(),
       env.duichai_db.prepare("SELECT COUNT(*) as count FROM clubs WHERE status = 'active'").first(),
       env.duichai_db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM chaihuo_transactions WHERE type != 'tip_given'").first(),
@@ -164,5 +176,58 @@ export async function handleRankings(request: Request, env: Env): Promise<Respon
     return jsonResponse({ success: true, data: parsed, type });
   } catch (e) {
     return jsonResponse({ error: 'Rankings failed' }, 500);
+  }
+}
+
+// Admin user list
+export async function handleAdminUsers(request: Request, env: Env): Promise<Response> {
+  try {
+    const users: any = await env.duichai_db.prepare(`
+      SELECT id, uid, email, nickname, phone, role, level, chaihuo_balance, invite_code, created_at
+      FROM users
+      ORDER BY created_at DESC
+      LIMIT 100
+    `).all();
+    return jsonResponse({ success: true, data: users.results });
+  } catch (e) {
+    return jsonResponse({ error: 'Failed to fetch users' }, 500);
+  }
+}
+
+// Admin venue list (all venues including pending)
+export async function handleAdminVenues(request: Request, env: Env): Promise<Response> {
+  try {
+    const venues: any = await env.duichai_db.prepare(`
+      SELECT v.*, u.nickname as publisher_name
+      FROM venues v
+      LEFT JOIN users u ON v.publisher_id = u.id
+      ORDER BY v.created_at DESC
+      LIMIT 100
+    `).all();
+    const parsed = venues.results.map((v: any) => ({
+      ...v,
+      photos: JSON.parse(v.photos || '[]'),
+    }));
+    return jsonResponse({ success: true, data: parsed });
+  } catch (e) {
+    return jsonResponse({ error: 'Failed to fetch venues' }, 500);
+  }
+}
+
+// Admin approve venue
+export async function handleAdminApproveVenue(request: Request, env: Env, venueId: string): Promise<Response> {
+  try {
+    const venue: any = await env.duichai_db.prepare(
+      'SELECT id, status FROM venues WHERE id = ?'
+    ).bind(venueId).first();
+    if (!venue) return jsonResponse({ error: 'Venue not found' }, 404);
+
+    await env.duichai_db.prepare(
+      "UPDATE venues SET status = 'approved', updated_at = datetime('now') WHERE id = ?"
+    ).bind(venueId).run();
+
+    return jsonResponse({ success: true, message: 'Venue approved' });
+  } catch (e) {
+    return jsonResponse({ error: 'Failed to approve venue' }, 500);
   }
 }

@@ -49,15 +49,28 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
 
     const id = generateId();
     const passwordHash = await hashPassword(password);
-    const inviteCode = generateInviteCode();
     const uid = await generateNextUid(env);
+    // 邀请码 = UID（数字UID作为邀请码）
+    const inviteCode = uid.toString();
 
-    // 检查邀请码
+    // 检查邀请码（支持UID数字或旧版字母邀请码）
     let inviterId: string | null = null;
     if (invite_code) {
-      const inviter: any = await env.duichai_db.prepare(
-        'SELECT id FROM users WHERE invite_code = ?'
-      ).bind(invite_code).first();
+      const code = invite_code.trim();
+      let inviter: any = null;
+      // 先按UID（纯数字）查找
+      const codeAsUid = parseInt(code);
+      if (!isNaN(codeAsUid)) {
+        inviter = await env.duichai_db.prepare(
+          'SELECT id FROM users WHERE uid = ?'
+        ).bind(codeAsUid).first();
+      }
+      // 再按旧版邀请码查找
+      if (!inviter) {
+        inviter = await env.duichai_db.prepare(
+          'SELECT id FROM users WHERE invite_code = ?'
+        ).bind(code).first();
+      }
       if (inviter) {
         inviterId = inviter.id;
       }

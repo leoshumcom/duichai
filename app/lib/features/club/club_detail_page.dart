@@ -260,7 +260,6 @@ class _ClubDetailPageState extends State<ClubDetailPage> with SingleTickerProvid
       final beforeCursor = text.substring(0, cursorPos);
       final atIndex = beforeCursor.lastIndexOf('@');
       if (atIndex >= 0 && (atIndex == 0 || beforeCursor[atIndex - 1] == ' ')) {
-        final query = beforeCursor.substring(atIndex + 1);
         setState(() {
           _showMentionPopup = true;
         });
@@ -566,6 +565,7 @@ class _ClubDetailPageState extends State<ClubDetailPage> with SingleTickerProvid
                   ),
                 );
               }),
+          ],
           ],
           const SizedBox(height: 32),
         ],
