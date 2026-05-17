@@ -1,0 +1,39 @@
+group 'com.amap.flutter.amap_flutter_map'
+version '1.0'
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:7.4.0'
+    }
+}
+
+rootProject.allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.amap.com/artifactory/plugin-releases/' }
+    }
+}
+
+apply plugin: 'com.android.library'
+
+android {
+    namespace 'com.amap.flutter.amap_flutter_map'
+    compileSdk 34
+    defaultConfig {
+        minSdk 16
+    }
+    lintOptions {
+        disable 'InvalidPackage'
+    }
+}
+
+dependencies {
+    compileOnly 'com.amap.api:3dmap:8.1.0'
+}

@@ -1,5 +1,5 @@
-name: duichai
-description: "堆柴 — 众人拾柴火焰高"
+﻿name: duichai
+description: "鍫嗘煷 鈥?浼椾汉鎷炬煷鐏劙楂?
 publish_to: 'none'
 version: 0.1.0+1
 
@@ -36,7 +36,7 @@ dependencies:
 
 dependency_overrides:
   amap_flutter_map:
-    path: C:/duichai/patched_plugins/amap_flutter_map
+    path: ../patched_plugins/amap_flutter_map
 
 dev_dependencies:
   flutter_test:
@@ -49,3 +49,4 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+
