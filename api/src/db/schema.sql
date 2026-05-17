@@ -361,7 +361,52 @@ CREATE TABLE IF NOT EXISTS mentions (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- 29. 会话表（Token持久化）
+-- 29. UID系统（用户数字ID）
+ALTER TABLE users ADD COLUMN uid INTEGER UNIQUE;
+
+-- 30. 预留靓号表
+CREATE TABLE IF NOT EXISTS reserved_uids (
+    uid INTEGER PRIMARY KEY,
+    status TEXT NOT NULL DEFAULT 'reserved' CHECK(status IN ('reserved','available','sold','system')),
+    price INTEGER NOT NULL DEFAULT 0,
+    buyer_id TEXT REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- 31. 靓号订单
+CREATE TABLE IF NOT EXISTS uid_orders (
+    id TEXT PRIMARY KEY,
+    uid INTEGER NOT NULL,
+    buyer_id TEXT NOT NULL REFERENCES users(id),
+    price INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','paid','cancelled')),
+    paid_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- 32. 俱乐部聊天消息
+CREATE TABLE IF NOT EXISTS club_messages (
+    id TEXT PRIMARY KEY,
+    club_id TEXT NOT NULL REFERENCES clubs(id),
+    user_id TEXT NOT NULL REFERENCES users(id),
+    content TEXT NOT NULL,
+    parent_id TEXT REFERENCES club_messages(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX idx_club_messages_club ON club_messages(club_id, created_at);
+
+-- 33. 俱乐部消息@提及
+CREATE TABLE IF NOT EXISTS club_message_mentions (
+    id TEXT PRIMARY KEY,
+    message_id TEXT NOT NULL REFERENCES club_messages(id),
+    mentioned_user_id TEXT NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX idx_club_mention_message ON club_message_mentions(message_id);
+
+-- 34. 会话表（Token持久化）
 CREATE TABLE IF NOT EXISTS sessions (
     token TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id),

@@ -140,12 +140,30 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 60),
 
-              // 邮箱输入
+              // UID提示说明
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.tag, size: 18, color: AppTheme.primary),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text('支持邮箱或UID登录', style: TextStyle(fontSize: 13, color: AppTheme.warmBrown)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // 邮箱/UID输入
               TextField(
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
-                  labelText: '邮箱',
+                  labelText: '邮箱 / UID',
                   prefixIcon: Icon(Icons.email_outlined),
                 ),
               ),
@@ -258,9 +276,10 @@ class _RegisterPageState extends State<RegisterPage> {
       );
 
       if (res['success'] == true) {
+        final uid = res['data']?['uid'];
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('注册成功，请登录')),
+            SnackBar(content: Text('注册成功！您的UID: $uid，请登录')),
           );
           Navigator.pop(context);
         }

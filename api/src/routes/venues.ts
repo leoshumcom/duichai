@@ -188,6 +188,55 @@ export async function handleTipVenue(request: Request, env: Env): Promise<Respon
   }
 }
 
+// 获取场地评价列表
+async function getUserIdFromToken(request: Request, env: Env): Promise<string | null> {
+  const auth = request.headers.get('Authorization');
+  if (!auth || !auth.startsWith('Bearer ')) return null;
+  const token = auth.slice(7);
+  const session: any = await env.duichai_db.prepare(
+    'SELECT user_id FROM sessions WHERE token = ?'
+  ).bind(token).first();
+  return session?.user_id || null;
+}
+
+export async function handleGetVenueReviews(request: Request, env: Env, venueId: string): Promise<Response> {
+  const url = new URL(request.url);
+  const page = parseInt(url.searchParams.get('page') || '1');
+  const limit = parseInt(url.searchParams.get('limit') || '20');
+  const offset = (page - 1) * limit;
+
+  const reviews: any[] = await env.duichai_db.prepare(`
+    SELECT r.*, u.nickname, u.avatar, u.uid
+    FROM reviews r
+    LEFT JOIN users u ON r.user_id = u.id
+    WHERE r.venue_id = ?
+    ORDER BY r.created_at DESC
+    LIMIT ? OFFSET ?
+  `).bind(venueId, limit, offset).all();
+
+  const totalResult: any = await env.duichai_db.prepare(
+    'SELECT COUNT(*) as total FROM reviews WHERE venue_id = ?'
+  ).bind(venueId).first();
+
+  // 解析@提及
+  const parsed = reviews.results.map((r: any) => {
+    let photoList: string[] = [];
+    try { photoList = JSON.parse(r.photos || '[]'); } catch (_) {}
+    return {
+      ...r,
+      photos: photoList,
+    };
+  });
+
+  return jsonResponse({
+    success: true,
+    data: parsed,
+    total: totalResult?.total || 0,
+    page,
+    limit,
+  });
+}
+
 // 补充场地信息
 export async function handleSupplementVenue(request: Request, env: Env): Promise<Response> {
   try {

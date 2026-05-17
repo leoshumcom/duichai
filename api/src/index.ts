@@ -6,10 +6,11 @@
 import { Router } from './router';
 import { jsonResponse, corsHeaders } from './utils';
 import { initDB } from './db/init';
-import { handleRegister, handleLogin, handleGetUser, handleGetMe } from './routes/auth';
-import { handleCreateVenue, handleGetVenue, handleSearchVenues, handleTipVenue, handleSupplementVenue } from './routes/venues';
+import { handleRegister, handleLogin, handleLoginByUid, handleGetUser, handleGetMe, handleGetMyUid, handleSetUserUid } from './routes/auth';
+import { handleCreateVenue, handleGetVenue, handleSearchVenues, handleTipVenue, handleSupplementVenue, handleGetVenueReviews } from './routes/venues';
 import { handleUpload, handleBatchUpload, handleDeleteFile } from './routes/upload';
 import { handleCreateClub, handleListClubs, handleGetClub, handleJoinClub } from './routes/clubs';
+import { handleSendClubMessage, handleGetClubMessages } from './routes/club_messages';
 import { handleDashboardStats, handleUserTrend, handleRankings, handleAdminLogin, handleGrantChaihuo } from './routes/admin';
 import { handleMyTips, handleMyBadges, handleMyClubs, handleMyVenues, handleMyInvites, handleNotifications, handleMarkRead, handleUpdateAvatar, handleUpdateProfile } from './routes/profile';
 
@@ -51,12 +52,16 @@ export default {
     // ===== Auth =====
     router.add('POST', '/api/auth/register', async (req) => handleRegister(req, env));
     router.add('POST', '/api/auth/login', async (req) => handleLogin(req, env));
+    router.add('POST', '/api/auth/login-by-uid', async (req) => handleLoginByUid(req, env));
     router.add('GET', '/api/users/me', async (req) => handleGetMe(req, env));
+    router.add('GET', '/api/users/me/uid', async (req) => handleGetMyUid(req, env));
     router.add('GET', '/api/users/:id', async (req, params) => handleGetUser(req, env, params.id));
+    router.add('POST', '/api/admin/users/set-uid', async (req) => handleSetUserUid(req, env));
 
     // ===== Venues =====
     router.add('POST', '/api/venues', async (req) => handleCreateVenue(req, env));
     router.add('GET', '/api/venues/:id', async (req, params) => handleGetVenue(req, env, params.id));
+    router.add('GET', '/api/venues/:id/reviews', async (req, params) => handleGetVenueReviews(req, env, params.id));
     router.add('GET', '/api/venues', async (req) => handleSearchVenues(req, env));
     router.add('POST', '/api/venues/tip', async (req) => handleTipVenue(req, env));
     router.add('POST', '/api/venues/supplement', async (req) => handleSupplementVenue(req, env));
@@ -71,6 +76,8 @@ export default {
     router.add('GET', '/api/clubs', async (req) => handleListClubs(req, env));
     router.add('GET', '/api/clubs/:id', async (req, params) => handleGetClub(req, env, params.id));
     router.add('POST', '/api/clubs/join', async (req) => handleJoinClub(req, env));
+    router.add('POST', '/api/clubs/:id/messages', async (req, params) => handleSendClubMessage(req, env, params.id));
+    router.add('GET', '/api/clubs/:id/messages', async (req, params) => handleGetClubMessages(req, env, params.id));
 
     // ===== Profile =====
     router.add('GET', '/api/users/me/tips', async (req) => handleMyTips(req, env));

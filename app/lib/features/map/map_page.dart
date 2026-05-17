@@ -16,6 +16,7 @@ class _MapPageState extends State<MapPage> {
   final MapController _mapController = MapController();
   List<Map<String, dynamic>> _venues = [];
   bool _loading = true;
+  bool _mapError = false;
   LatLng _center = const LatLng(39.9042, 116.4074);
 
   @override
@@ -86,9 +87,19 @@ class _MapPageState extends State<MapPage> {
             mapController: _mapController,
             options: MapOptions(initialCenter: _center, initialZoom: 14),
             children: [
+              // 多层图源: OSM主站 -> OSM德国镜像 -> 备用
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                fallbackUrl: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.duichai.duichai',
+                maxZoom: 18,
+                errorImage: const AssetImage('assets/images/tile_error.png'),
+              ),
+              // 额外备用图源
+              TileLayer(
+                urlTemplate: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}',
+                userAgentPackageName: 'com.duichai.duichai',
+                maxZoom: 16,
               ),
               MarkerLayer(
                 markers: _venues.map((v) {
@@ -115,6 +126,32 @@ class _MapPageState extends State<MapPage> {
               ),
             ],
           ),
+          // 地图加载错误提示
+          if (_mapError)
+            Positioned(
+              top: 16, left: 16, right: 16,
+              child: Material(
+                elevation: 2,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber, color: Colors.orange.shade700, size: 20),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text('地图瓦片加载失败，已切换到备用图源',
+                          style: TextStyle(fontSize: 13, color: Colors.black87)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           if (_venues.isNotEmpty)
             Positioned(
               left: 8, right: 8, bottom: 8,

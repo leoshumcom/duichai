@@ -147,6 +147,18 @@ class _ProfilePageState extends State<ProfilePage> {
                               Text(user?['email'] ?? '',
                                   style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                               const SizedBox(width: 4),
+                              if (user?['uid'] != null) ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primary.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text('UID ${user!['uid']}',
+                                    style: const TextStyle(fontSize: 11, color: AppTheme.primary, fontWeight: FontWeight.w600)),
+                                ),
+                              ],
+                              const SizedBox(width: 4),
                               GestureDetector(
                                 onTap: () => _showEditProfileDialog(context, auth),
                                 child: Icon(Icons.edit, size: 14, color: AppTheme.primary),
