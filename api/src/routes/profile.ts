@@ -9,7 +9,7 @@ interface Env {
 }
 
 /// 获取用户ID（从Authorization头）
-async function getUserId(request: Request, env: Env): Promise<string | null> {
+async function getProfileUserId(request: Request, env: Env): Promise<string | null> {
   const auth = request.headers.get('Authorization');
   if (!auth || !auth.startsWith('Bearer ')) return null;
   const token = auth.slice(7);
@@ -21,7 +21,7 @@ async function getUserId(request: Request, env: Env): Promise<string | null> {
 
 /// 我的添柴记录
 export async function handleMyTips(request: Request, env: Env): Promise<Response> {
-  const userId = await getUserId(request, env);
+  const userId = await getProfileUserId(request, env);
   if (!userId) return jsonResponse({ error: '未登录' }, 401);
 
   const tips: any[] = await env.duichai_db.prepare(`
@@ -43,7 +43,7 @@ export async function handleMyTips(request: Request, env: Env): Promise<Response
 
 /// 我的勋章
 export async function handleMyBadges(request: Request, env: Env): Promise<Response> {
-  const userId = await getUserId(request, env);
+  const userId = await getProfileUserId(request, env);
   if (!userId) return jsonResponse({ error: '未登录' }, 401);
 
   const badges: any[] = await env.duichai_db.prepare(`
@@ -77,7 +77,7 @@ export async function handleMyBadges(request: Request, env: Env): Promise<Respon
 
 /// 我的俱乐部
 export async function handleMyClubs(request: Request, env: Env): Promise<Response> {
-  const userId = await getUserId(request, env);
+  const userId = await getProfileUserId(request, env);
   if (!userId) return jsonResponse({ error: '未登录' }, 401);
 
   const clubs: any[] = await env.duichai_db.prepare(`
@@ -93,7 +93,7 @@ export async function handleMyClubs(request: Request, env: Env): Promise<Respons
 
 /// 我发布的场地
 export async function handleMyVenues(request: Request, env: Env): Promise<Response> {
-  const userId = await getUserId(request, env);
+  const userId = await getProfileUserId(request, env);
   if (!userId) return jsonResponse({ error: '未登录' }, 401);
 
   const venues: any[] = await env.duichai_db.prepare(`
@@ -116,7 +116,7 @@ export async function handleMyVenues(request: Request, env: Env): Promise<Respon
 
 /// 邀请记录
 export async function handleMyInvites(request: Request, env: Env): Promise<Response> {
-  const userId = await getUserId(request, env);
+  const userId = await getProfileUserId(request, env);
   if (!userId) return jsonResponse({ error: '未登录' }, 401);
 
   // 获取该用户信息（含邀请码）
@@ -146,7 +146,7 @@ export async function handleMyInvites(request: Request, env: Env): Promise<Respo
 
 /// 通知列表
 export async function handleNotifications(request: Request, env: Env): Promise<Response> {
-  const userId = await getUserId(request, env);
+  const userId = await getProfileUserId(request, env);
   if (!userId) return jsonResponse({ error: "未登录" }, 401);
 
   const url = new URL(request.url);
@@ -172,7 +172,7 @@ export async function handleNotifications(request: Request, env: Env): Promise<R
 
 /// 标记通知已读
 export async function handleMarkRead(request: Request, env: Env): Promise<Response> {
-  const userId = await getUserId(request, env);
+  const userId = await getProfileUserId(request, env);
   if (!userId) return jsonResponse({ error: "未登录" }, 401);
 
   const body: any = await request.json();
@@ -193,7 +193,7 @@ export async function handleMarkRead(request: Request, env: Env): Promise<Respon
 
 /// 更新头像
 export async function handleUpdateAvatar(request: Request, env: Env): Promise<Response> {
-  const userId = await getUserId(request, env);
+  const userId = await getProfileUserId(request, env);
   if (!userId) return jsonResponse({ error: "未登录" }, 401);
 
   const body: any = await request.json();
@@ -210,7 +210,7 @@ export async function handleUpdateAvatar(request: Request, env: Env): Promise<Re
 
 /// 更新用户资料
 export async function handleUpdateProfile(request: Request, env: Env): Promise<Response> {
-  const userId = await getUserId(request, env);
+  const userId = await getProfileUserId(request, env);
   if (!userId) return jsonResponse({ error: "未登录" }, 401);
 
   const body: any = await request.json();

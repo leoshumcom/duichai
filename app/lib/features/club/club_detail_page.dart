@@ -282,7 +282,7 @@ class _ClubDetailPageState extends State<ClubDetailPage> with SingleTickerProvid
       final newText = '${text.substring(0, atIndex)}@${member['nickname'] ?? ''}$afterCursor';
       _msgCtrl.text = newText;
       _msgCtrl.selection = TextSelection.collapsed(
-        offset: atIndex + (member['nickname'] ?? '').length + 1,
+        offset: atIndex + ((member['nickname'] ?? '') as String).length + 1,
       );
     }
     setState(() => _showMentionPopup = false);

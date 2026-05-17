@@ -1,8 +1,7 @@
-import 'package:amap_flutter_map/amap_flutter_map.dart';
-import 'package:amap_flutter_base/amap_flutter_base.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
-import '../../core/app_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/network/api_client.dart';
 
@@ -14,11 +13,10 @@ class MapPage extends StatefulWidget {
 
 class _MapPageState extends State<MapPage> {
   final _api = ApiClient();
-  late AMapController _mapController;
+  final MapController _mapController = MapController();
   List<Map<String, dynamic>> _venues = [];
   bool _loading = true;
   LatLng _center = const LatLng(39.9042, 116.4074);
-  Set<Marker> _markers = {};
 
   @override
   void initState() {
@@ -27,6 +25,13 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<void> _initLocation() async {
+    try {
+      LocationPermission perm = await Geolocator.requestPermission();
+      if (perm == LocationPermission.always || perm == LocationPermission.whileInUse) {
+        final pos = await Geolocator.getCurrentPosition();
+        if (pos != null) _center = LatLng(pos.latitude, pos.longitude);
+      }
+    } catch (_) {}
     _loadVenues();
   }
 
@@ -38,23 +43,9 @@ class _MapPageState extends State<MapPage> {
         'radius': '10', 'limit': '50',
       });
       if (res['success'] == true && mounted) {
-        final venues = (res['data'] as List?)?.cast<Map<String, dynamic>>() ?? [];
         setState(() {
-          _venues = venues;
+          _venues = (res['data'] as List?)?.cast<Map<String, dynamic>>() ?? [];
           _loading = false;
-          _markers = venues.map((v) {
-            final lat = (v['latitude'] as num?)?.toDouble() ?? 0;
-            final lng = (v['longitude'] as num?)?.toDouble() ?? 0;
-            return Marker(
-              position: LatLng(lat, lng),
-              icon: BitmapDescriptor.defaultMarker,
-              infoWindowEnable: true,
-              infoWindow: InfoWindow(title: v['name'] ?? '', snippet: '🔥 ${v['chaihuo_total'] ?? 0}'),
-              onTap: (id) {
-                Navigator.pushNamed(context, '/venue/detail', arguments: v['id']);
-              },
-            );
-          }).toSet();
         });
       } else if (mounted) {
         setState(() => _loading = false);
@@ -68,7 +59,7 @@ class _MapPageState extends State<MapPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('地图'),
+        title: const Text('Map'),
         actions: [
           IconButton(
             icon: const Icon(Icons.my_location),
@@ -76,14 +67,13 @@ class _MapPageState extends State<MapPage> {
               try {
                 final pos = await Geolocator.getCurrentPosition();
                 if (pos != null) {
-                  final latLng = LatLng(pos.latitude, pos.longitude);
-                  setState(() => _center = latLng);
-                  _mapController.moveCamera(CameraUpdate.newLatLngZoom(latLng, 14));
+                  setState(() => _center = LatLng(pos.latitude, pos.longitude));
+                  _mapController.move(_center, 14);
                   _loadVenues();
                 }
               } catch (_) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('定位失败'), duration: Duration(seconds: 1)),
+                  const SnackBar(content: Text('Location failed'), duration: Duration(seconds: 1)),
                 );
               }
             },
@@ -92,30 +82,38 @@ class _MapPageState extends State<MapPage> {
       ),
       body: Stack(
         children: [
-          AMapWidget(
-            apiKey: AMapApiKey(
-              androidKey: AppConfig.amapApiKey,
-              iosKey: AppConfig.amapIosKey,
-            ),
-            privacyStatement: const AMapPrivacyStatement(
-              hasContains: true,
-              hasShow: true,
-              hasAgree: true,
-            ),
-            initialCameraPosition: CameraPosition(
-              target: _center,
-              zoom: 14,
-            ),
-            myLocationStyleOptions: const MyLocationStyleOptions(
-              true,
-              circleFillColor: Colors.lightBlue,
-              circleStrokeColor: Colors.blue,
-              circleStrokeWidth: 2,
-            ),
-            markers: _markers,
-            onMapCreated: (controller) {
-              _mapController = controller;
-            },
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(initialCenter: _center, initialZoom: 14),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.duichai.duichai',
+              ),
+              MarkerLayer(
+                markers: _venues.map((v) {
+                  final lat = (v['latitude'] as num?)?.toDouble() ?? 0;
+                  final lng = (v['longitude'] as num?)?.toDouble() ?? 0;
+                  return Marker(
+                    point: LatLng(lat, lng),
+                    width: 40,
+                    height: 40,
+                    child: GestureDetector(
+                      onTap: () => Navigator.pushNamed(context, '/venue/detail', arguments: v['id']),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 4)],
+                        ),
+                        child: const Icon(Icons.local_fire_department, color: Colors.white, size: 18),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
           ),
           if (_venues.isNotEmpty)
             Positioned(

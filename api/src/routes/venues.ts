@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 场地路由
  */
 
@@ -265,7 +265,7 @@ export async function handleSupplementVenue(request: Request, env: Env): Promise
 }
 
 // 约球匹配——创建约球
-async function getUserIdFromToken(request: Request, env: Env): Promise<string | null> {
+async function getMatchUserId(request: Request, env: Env): Promise<string | null> {
   const auth = request.headers.get('Authorization');
   if (!auth || !auth.startsWith('Bearer ')) return null;
   const token = auth.slice(7);
@@ -277,7 +277,7 @@ async function getUserIdFromToken(request: Request, env: Env): Promise<string | 
 
 export async function handleCreateMatch(request: Request, env: Env, venueId: string): Promise<Response> {
   try {
-    const userId = await getUserIdFromToken(request, env);
+    const userId = await getMatchUserId(request, env);
     if (!userId) return jsonResponse({ error: '未登录' }, 401);
 
     const body: any = await request.json();
@@ -347,7 +347,7 @@ export async function handleGetVenueMatches(request: Request, env: Env, venueId:
 // 加入约球
 export async function handleJoinMatch(request: Request, env: Env, matchId: string): Promise<Response> {
   try {
-    const userId = await getUserIdFromToken(request, env);
+    const userId = await getMatchUserId(request, env);
     if (!userId) return jsonResponse({ error: '未登录' }, 401);
 
     // 检查约球是否存在且开放
