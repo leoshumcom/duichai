@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:geolocator/geolocator.dart';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import '../../core/theme/app_theme.dart';
@@ -127,34 +128,92 @@ class _PublishVenuePageState extends State<PublishVenuePage> {
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.location_on, color: AppTheme.primary),
-                  title: Text(_address ?? '点击选择位置'),
-                  trailing: const Icon(Icons.chevron_right),
+                  title: Text(_address ?? '点击获取当前位置'),
+                  subtitle: _lat != null ? Text('${_lat!.toStringAsFixed(4)}, ${_lng!.toStringAsFixed(4)}', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)) : null,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_lat == null)
+                        TextButton.icon(
+                          onPressed: () async {
+                            try {
+                              final perm = await Geolocator.requestPermission();
+                              if (perm == LocationPermission.denied) {
+                                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('需要位置权限')));
+                                return;
+                              }
+                              final pos = await Geolocator.getCurrentPosition();
+                              if (mounted) {
+                                setState(() {
+                                  _lat = pos.latitude;
+                                  _lng = pos.longitude;
+                                  _address = '位置已获取';
+                                });
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                // 定位失败，弹出地址输入框
+                                final addr = await showDialog<String>(
+                                  context: context,
+                                  builder: (ctx) {
+                                    final ctrl = TextEditingController();
+                                    return AlertDialog(
+                                      title: const Text('输入地址/位置'),
+                                      content: TextField(controller: ctrl, decoration: const InputDecoration(hintText: '例如：朝阳区国贸CBD'), maxLines: 2),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+                                        TextButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('确认')),
+                                      ],
+                                    );
+                                  },
+                                );
+                                if (addr != null && addr.isNotEmpty && mounted) {
+                                  setState(() { _address = addr; });
+                                }
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.my_location, size: 18),
+                          label: const Text('定位', style: TextStyle(fontSize: 13)),
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.refresh, size: 20),
+                        onPressed: () {
+                          setState(() {
+                            _lat = null;
+                            _lng = null;
+                            _address = null;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
                   onTap: () async {
-                    // 简单手动输入坐标（地图选点模块待高德SDK修复后接入）
-                    final latCtrl = TextEditingController(text: _lat?.toString() ?? '');
-                    final lngCtrl = TextEditingController(text: _lng?.toString() ?? '');
+                    // 弹出地址输入框供用户手动输入
                     final addrCtrl = TextEditingController(text: _address ?? '');
+                    final latCtrl = TextEditingController(text: _lat?.toStringAsFixed(6) ?? '');
+                    final lngCtrl = TextEditingController(text: _lng?.toStringAsFixed(6) ?? '');
                     final result = await showDialog<Map<String, dynamic>>(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        title: const Text('设置位置'),
+                        title: const Text('编辑位置'),
                         content: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            TextField(controller: addrCtrl, decoration: const InputDecoration(labelText: '地址', hintText: '手动输入地址'), maxLines: 2),
+                            TextField(controller: addrCtrl, decoration: const InputDecoration(labelText: '地址描述', hintText: '场地地址或描述'), maxLines: 2),
                             const SizedBox(height: 8),
                             Row(children: [
-                              Expanded(child: TextField(controller: latCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '纬度'))),
+                              Expanded(child: TextField(controller: latCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '纬度（选填）', hintText: '如: 39.9'))),
                               const SizedBox(width: 8),
-                              Expanded(child: TextField(controller: lngCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '经度'))),
+                              Expanded(child: TextField(controller: lngCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '经度（选填）', hintText: '如: 116.4'))),
                             ]),
                           ],
                         ),
                         actions: [
                           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
                           ElevatedButton(onPressed: () => Navigator.pop(ctx, {
-                            'lat': double.tryParse(latCtrl.text) ?? 39.9,
-                            'lng': double.tryParse(lngCtrl.text) ?? 116.4,
+                            'lat': double.tryParse(latCtrl.text),
+                            'lng': double.tryParse(lngCtrl.text),
                             'address': addrCtrl.text.trim(),
                           }), child: const Text('确认')),
                         ],
@@ -162,9 +221,11 @@ class _PublishVenuePageState extends State<PublishVenuePage> {
                     );
                     if (result != null && mounted) {
                       setState(() {
-                        _lat = result['lat'] as double;
-                        _lng = result['lng'] as double;
-                        _address = result['address'] as String;
+                        final parsedLat = result['lat'] as double?;
+                        final parsedLng = result['lng'] as double?;
+                        if (parsedLat != null) _lat = parsedLat;
+                        if (parsedLng != null) _lng = parsedLng;
+                        if ((result['address'] as String?)?.isNotEmpty == true) _address = result['address'] as String;
                       });
                     }
                   },

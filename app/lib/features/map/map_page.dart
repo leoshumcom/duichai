@@ -1,10 +1,11 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:dio/dio.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/network/api_client.dart';
 
-/// 地图找场页面（集成高德地图）
+/// 地图找场页面（使用OpenStreetMap + API场地数据）
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
 
@@ -13,11 +14,11 @@ class MapPage extends StatefulWidget {
 }
 
 class _MapPageState extends State<MapPage> {
-  final _api = Dio(BaseOptions(baseUrl: 'https://restapi.amap.com/v3'));
+  final _api = ApiClient();
+  final MapController _mapController = MapController();
   List<Map<String, dynamic>> _venues = [];
   bool _loading = true;
-  double _lat = 39.9042; // 默认北京
-  double _lng = 116.4074;
+  LatLng _center = const LatLng(39.9042, 116.4074); // 默认北京
 
   @override
   void initState() {
@@ -26,30 +27,35 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<void> _initLocation() async {
-    var status = await Permission.location.request();
-    if (status.isGranted) {
-      // TODO: 通过高德定位SDK获取真实位置
-      // 目前使用默认位置，后续接入 amap_flutter_location
+    try {
+      LocationPermission permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+        final pos = await Geolocator.getCurrentPosition();
+        if (pos != null) {
+          _center = LatLng(pos.latitude, pos.longitude);
+        }
+      }
+    } catch (_) {
+      // 定位失败，使用默认位置
     }
-    _searchNearby();
+    _loadVenues();
   }
 
-  Future<void> _searchNearby() async {
+  Future<void> _loadVenues() async {
     try {
-      final res = await _api.get('/place/around', queryParameters: {
-        'key': 'f073e6e3b08e43d4a8383ba702bd7bab', // 高德Web服务Key
-        'location': '$_lng,$_lat',
-        'radius': '5000',
-        'types': '运动场馆|体育休闲',
-        'offset': '20',
-        'extensions': 'base',
+      final res = await _api.get('/api/venues', params: {
+        'lat': _center.latitude.toString(),
+        'lng': _center.longitude.toString(),
+        'radius': '10',
+        'limit': '50',
       });
-      if (res.data['status'] == '1' && mounted) {
-        final pois = (res.data['pois'] as List?) ?? [];
+      if (res['success'] == true && mounted) {
         setState(() {
-          _venues = pois.cast<Map<String, dynamic>>();
+          _venues = (res['data'] as List?)?.cast<Map<String, dynamic>>() ?? [];
           _loading = false;
         });
+      } else {
+        if (mounted) setState(() => _loading = false);
       }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
@@ -64,178 +70,131 @@ class _MapPageState extends State<MapPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.my_location),
-            onPressed: _searchNearby,
-            tooltip: '刷新附近场地',
+            onPressed: () async {
+              try {
+                final pos = await Geolocator.getCurrentPosition();
+                if (pos != null) {
+                  setState(() => _center = LatLng(pos.latitude, pos.longitude));
+                  _mapController.move(_center, 14);
+                  _loadVenues();
+                }
+              } catch (_) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('定位失败'), duration: Duration(seconds: 1)),
+                );
+              }
+            },
+            tooltip: '我的位置',
           ),
         ],
       ),
       body: Stack(
         children: [
-          // 地图占位（待接入高德MapWidget）
-          Container(
-            color: Colors.grey.shade100,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.map, size: 80, color: Colors.grey.shade300),
-                  const SizedBox(height: 16),
-                  const Text('高德地图容器', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Text(
-                    '此处将嵌入高德地图 MapWidget\n需配置 AMAP_API_KEY',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
-                  ),
-                ],
-              ),
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _center,
+              initialZoom: 14,
+              onTap: (tapPos, latlng) {
+                // 点击地图添加标记
+              },
             ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.duichai.duichai',
+              ),
+              MarkerLayer(
+                markers: _venues.map((v) {
+                  final lat = (v['latitude'] as num?)?.toDouble() ?? 0;
+                  final lng = (v['longitude'] as num?)?.toDouble() ?? 0;
+                  return Marker(
+                    point: LatLng(lat, lng),
+                    width: 40,
+                    height: 40,
+                    child: GestureDetector(
+                      onTap: () => Navigator.pushNamed(context, '/venue/detail', arguments: v['id']),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 4)],
+                        ),
+                        child: const Icon(Icons.local_fire_department, color: Colors.white, size: 18),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
           ),
 
-          // 底部场地列表
-          Positioned(
-            left: 0, right: 0, bottom: 0,
-            child: Container(
-              height: 200,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10)],
+          // 底部场地卡片
+          if (_venues.isNotEmpty)
+            Positioned(
+              left: 8, right: 8, bottom: 8,
+              child: Container(
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
+                ),
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.all(8),
+                  itemCount: _venues.length,
+                  itemBuilder: (ctx, i) => _buildVenueCard(_venues[i]),
+                ),
               ),
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _venues.isEmpty
-                      ? const Center(child: Text('附近暂无场地'))
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: _venues.length,
-                          itemBuilder: (ctx, i) => _buildNearbyItem(_venues[i]),
-                        ),
             ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildNearbyItem(Map<String, dynamic> poi) {
-    return ListTile(
-      dense: true,
-      leading: Container(
-        width: 40, height: 40,
+  Widget _buildVenueCard(Map<String, dynamic> venue) {
+    final photos = (venue['photos'] as List?)?.cast<String>() ?? [];
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(context, '/venue/detail', arguments: venue['id']),
+      child: Container(
+        width: 160,
+        margin: const EdgeInsets.only(right: 8),
         decoration: BoxDecoration(
-          color: AppTheme.primary.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
+          color: Colors.grey.shade50,
         ),
-        child: const Icon(Icons.stadium_outlined, color: AppTheme.primary, size: 20),
-      ),
-      title: Text(poi['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-      subtitle: Text(
-        '${poi['distance'] ?? ''}m · ${poi['type'] ?? ''}',
-        style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-      ),
-      trailing: const Icon(Icons.add_circle_outline, color: AppTheme.primary, size: 20),
-      onTap: () {
-        // 点击跳转到场地详情或提示可以发布
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('「${poi['name']}」尚未被收录，去发布？')),
-        );
-      },
-    );
-  }
-}
-
-/// 地图选点组件（发布场地时使用）
-class LocationPicker extends StatefulWidget {
-  final Function(double lat, double lng, String address) onPicked;
-
-  const LocationPicker({super.key, required this.onPicked});
-
-  @override
-  State<LocationPicker> createState() => _LocationPickerState();
-}
-
-class _LocationPickerState extends State<LocationPicker> {
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () async {
-          // TODO: 弹出高德地图选点页面
-          // 模拟选点
-          final result = await showDialog<Map<String, dynamic>>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('选择位置'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+              child: Container(
+                height: 60,
+                color: Colors.grey.shade200,
+                child: photos.isNotEmpty
+                    ? Image.network(photos[0], fit: BoxFit.cover, width: double.infinity,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.sports_basketball, color: Colors.grey))
+                    : const Icon(Icons.sports_basketball, color: Colors.grey),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.map, size: 48, color: Colors.grey),
-                          SizedBox(height: 8),
-                          Text('地图选点界面\n（需接入高德地图选点SDK）',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey, fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                  ),
+                  Text(venue['name'] ?? '', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Row(children: [
+                    const Icon(Icons.local_fire_department, size: 12, color: AppTheme.primary),
+                    const SizedBox(width: 2),
+                    Text('${venue['chaihuo_total'] ?? 0}', style: const TextStyle(fontSize: 11, color: AppTheme.primary)),
+                  ]),
                 ],
               ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-                ElevatedButton(
-                  onPressed: () {
-                    // 模拟返回坐标
-                    Navigator.pop(ctx, {
-                      'lat': 39.9042,
-                      'lng': 116.4074,
-                      'address': '北京市朝阳区示例地址',
-                    });
-                  },
-                  child: const Text('确认位置'),
-                ),
-              ],
             ),
-          );
-
-          if (result != null) {
-            widget.onPicked(
-              result['lat'] as double,
-              result['lng'] as double,
-              result['address'] as String,
-            );
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              const Icon(Icons.location_on, color: AppTheme.primary, size: 24),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('选择位置', style: TextStyle(fontWeight: FontWeight.w500)),
-                    const SizedBox(height: 4),
-                    Text('在地图上标记场地位置', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: Colors.grey),
-            ],
-          ),
+          ],
         ),
       ),
     );

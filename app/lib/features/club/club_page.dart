@@ -83,7 +83,7 @@ class _ClubsPageState extends State<ClubsPage> {
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () {},
+        onTap: () => Navigator.pushNamed(context, '/club/detail', arguments: club['id'] ?? ''),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(

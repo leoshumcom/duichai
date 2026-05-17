@@ -16,6 +16,8 @@ dependencies:
   provider: ^6.1.0
 
   geolocator: ^10.1.0
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
 
   cached_network_image: ^3.3.0
   shimmer: ^3.0.0

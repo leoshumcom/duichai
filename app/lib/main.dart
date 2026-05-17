@@ -8,6 +8,8 @@ import 'features/profile/profile_page.dart';
 import 'features/venue/publish_venue_page.dart';
 import 'features/venue/venue_detail_page.dart';
 import 'features/club/club_page.dart';
+import 'features/club/club_detail_page.dart';
+import 'features/map/map_page.dart';
 import 'features/payment/recharge_page.dart';
 
 void main() async {
@@ -49,6 +51,9 @@ class DuichaiApp extends StatelessWidget {
         ),
         '/venue/list': (ctx) => const DiscoverPage(),
         '/club/create': (ctx) => const CreateClubPage(),
+        '/club/detail': (ctx) => ClubDetailPage(
+          clubId: ModalRoute.of(ctx)!.settings.arguments as String,
+        ),
         '/recharge': (ctx) => const RechargePage(),
       },
     );
@@ -66,7 +71,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _pages = [
     const DiscoverPage(),
-    const VenueMapPage(),
+    const MapPage(),
     const ClubsPage(),
     const ProfilePage(),
   ];
@@ -128,7 +133,11 @@ class _DiscoverPageState extends State<DiscoverPage> {
           if (!auth.isLoggedIn)
             TextButton(onPressed: () => Navigator.pushNamed(context, '/login'), child: const Text('登录'))
           else
-            IconButton(icon: const Icon(Icons.notifications_outlined), onPressed: () {}),
+            IconButton(icon: const Icon(Icons.notifications_outlined), onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('通知功能即将上线'), duration: Duration(seconds: 1)),
+              );
+            }),
         ],
       ),
       body: SafeArea(
@@ -144,7 +153,14 @@ class _DiscoverPageState extends State<DiscoverPage> {
                       decoration: InputDecoration(
                         hintText: '搜索场地、俱乐部...',
                         prefixIcon: const Icon(Icons.search),
-                        suffixIcon: const Icon(Icons.tune),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.tune),
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('筛选功能即将上线'), duration: Duration(seconds: 1)),
+                            );
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -270,12 +286,4 @@ class _DiscoverPageState extends State<DiscoverPage> {
   }
 }
 
-// ===== Map Page =====
-class VenueMapPage extends StatelessWidget {
-  const VenueMapPage({super.key});
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('地图找场')),
-    body: const Center(child: Text('地图模块待接入')),
-  );
-}
+
