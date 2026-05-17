@@ -29,18 +29,29 @@ class _VenueDetailPageState extends State<VenueDetailPage> with SingleTickerProv
 
   late TabController _tabController;
 
+  // Match-making
+  List<Map<String, dynamic>> _matches = [];
+  bool _loadingMatches = false;
+  final _matchTimeCtrl = TextEditingController();
+  final _matchNotesCtrl = TextEditingController();
+  int _matchMaxPlayers = 4;
+  DateTime _selectedMatchDate = DateTime.now().add(const Duration(hours: 2));
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _loadVenue();
     _loadReviews();
+    _loadMatches();
   }
 
   @override
   void dispose() {
     _tipCtrl.dispose();
     _tabController.dispose();
+    _matchTimeCtrl.dispose();
+    _matchNotesCtrl.dispose();
     super.dispose();
   }
 
@@ -114,6 +125,89 @@ class _VenueDetailPageState extends State<VenueDetailPage> with SingleTickerProv
     }
   }
 
+  Future<void> _loadMatches() async {
+    if (_loadingMatches) return;
+    setState(() => _loadingMatches = true);
+    try {
+      final res = await _api.get('/api/venues/${widget.venueId}/matches');
+      if (res['success'] == true && res['data'] != null) {
+        setState(() {
+          _matches = (res['data'] as List).cast<Map<String, dynamic>>();
+          _loadingMatches = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingMatches = false);
+    }
+  }
+
+  Future<void> _createMatch() async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isLoggedIn) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请先登录')),
+        );
+      }
+      return;
+    }
+
+    try {
+      final res = await _api.post('/api/venues/${widget.venueId}/match', data: {
+        'match_time': _selectedMatchDate.toIso8601String(),
+        'max_players': _matchMaxPlayers,
+        'notes': _matchNotesCtrl.text.isNotEmpty ? _matchNotesCtrl.text : null,
+      });
+      if (res['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('约球创建成功！')),
+          );
+          _matchNotesCtrl.clear();
+          _loadMatches();
+          // 切到约球tab
+          _tabController.animateTo(2);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(res['error'] ?? '创建失败')),
+          );
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('网络错误'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _joinMatch(String matchId) async {
+    try {
+      final res = await _api.post('/api/match/$matchId/join');
+      if (mounted) {
+        if (res['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('已加入约球')),
+          );
+          _loadMatches();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(res['error'] ?? '加入失败')),
+          );
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('网络错误'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   String _formatTime(String? timeStr) {
     if (timeStr == null) return '';
     try {
@@ -168,6 +262,7 @@ class _VenueDetailPageState extends State<VenueDetailPage> with SingleTickerProv
                 tabs: const [
                   Tab(text: '场地详情'),
                   Tab(text: '评价'),
+                  Tab(text: '约球'),
                 ],
               ),
             ),
@@ -180,6 +275,8 @@ class _VenueDetailPageState extends State<VenueDetailPage> with SingleTickerProv
             _buildDetailTab(v, photos, topTippers),
             // Tab 2: 评价列表
             _buildReviewsTab(),
+            // Tab 3: 约球
+            _buildMatchesTab(),
           ],
         ),
       ),
@@ -311,6 +408,228 @@ class _VenueDetailPageState extends State<VenueDetailPage> with SingleTickerProv
           const SizedBox(height: 40),
         ],
       ),
+    );
+  }
+
+  Widget _buildMatchesTab() {
+    return Column(
+      children: [
+        // 创建约球按钮
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _showCreateMatchDialog(context),
+              icon: const Icon(Icons.sports_esports),
+              label: const Text('发起约球'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+        ),
+
+        // 约球列表
+        Expanded(
+          child: _loadingMatches
+              ? const Center(child: CircularProgressIndicator())
+              : _matches.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.sports_esports_outlined, size: 64, color: Colors.grey.shade300),
+                          const SizedBox(height: 16),
+                          const Text('暂无约球', style: TextStyle(fontSize: 16)),
+                          const SizedBox(height: 8),
+                          Text('发起约球，一起运动吧！', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _matches.length,
+                      itemBuilder: (ctx, i) {
+                        final m = _matches[i];
+                        final matchTime = m['match_time'] ?? '';
+                        final status = m['status'] ?? 'open';
+                        final isFull = status == 'full';
+                        final canJoin = status == 'open' && !isFull;
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 16,
+                                      backgroundColor: AppTheme.primary.withOpacity(0.2),
+                                      child: Text(
+                                        (m['creator_name'] ?? '?').toString().substring(0, 1),
+                                        style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 14),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(m['creator_name'] ?? '用户', style: const TextStyle(fontWeight: FontWeight.w600)),
+                                    const Spacer(),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: isFull ? Colors.orange.shade50 : Colors.green.shade50,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        isFull ? '已满' : '招募中',
+                                        style: TextStyle(fontSize: 12, color: isFull ? Colors.orange : Colors.green, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(children: [
+                                  const Icon(Icons.access_time, size: 16, color: Colors.grey),
+                                  const SizedBox(width: 4),
+                                  Text(_formatTime(matchTime), style: TextStyle(color: Colors.grey.shade600)),
+                                  const Spacer(),
+                                  const Icon(Icons.people, size: 16, color: Colors.grey),
+                                  const SizedBox(width: 4),
+                                  Text('${m['current_players'] ?? 0}/${m['max_players'] ?? 0}', style: TextStyle(color: Colors.grey.shade600)),
+                                ]),
+                                if (m['notes'] != null && (m['notes'] as String).isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Text(m['notes'], style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                                ],
+                                if (canJoin) ...[
+                                  const SizedBox(height: 10),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: ElevatedButton(
+                                      onPressed: () => _joinMatch(m['id']),
+                                      style: ElevatedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                                      ),
+                                      child: const Text('加入', style: TextStyle(fontSize: 13)),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+        ),
+      ],
+    );
+  }
+
+  void _showCreateMatchDialog(BuildContext context) {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isLoggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先登录创建约球')),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) => Padding(
+            padding: EdgeInsets.only(
+              left: 20, right: 20, top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Center(
+                  child: Text('发起约球', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(height: 24),
+                const Text('时间', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final date = await showDatePicker(
+                            context: ctx,
+                            initialDate: _selectedMatchDate,
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 30)),
+                          );
+                          if (date != null) {
+                            final time = await showTimePicker(
+                              context: ctx,
+                              initialTime: TimeOfDay.fromDateTime(_selectedMatchDate),
+                            );
+                            if (time != null) {
+                              setSheetState(() {
+                                _selectedMatchDate = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+                              });
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.calendar_today, size: 18),
+                        label: Text(
+                          DateFormat('MM-dd HH:mm').format(_selectedMatchDate),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text('人数上限', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [2, 4, 6, 10, 20].map((n) => ChoiceChip(
+                    label: Text('$n 人'),
+                    selected: _matchMaxPlayers == n,
+                    selectedColor: AppTheme.primary.withOpacity(0.15),
+                    onSelected: (_) => setSheetState(() => _matchMaxPlayers = n),
+                  )).toList(),
+                ),
+                const SizedBox(height: 16),
+                const Text('备注（选填）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _matchNotesCtrl,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    hintText: '说点什么...自带球/新手友好/水平要求',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _createMatch();
+                    },
+                    child: const Text('发布约球'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -33,6 +33,10 @@ class _ClubDetailPageState extends State<ClubDetailPage> with SingleTickerProvid
 
   late TabController _tabController;
 
+  // Join requests
+  List<Map<String, dynamic>> _joinRequests = [];
+  bool _loadingJoinRequests = false;
+
   @override
   void initState() {
     super.initState();
@@ -87,6 +91,96 @@ class _ClubDetailPageState extends State<ClubDetailPage> with SingleTickerProvid
       }
     } catch (_) {
       if (mounted) setState(() => _loadingMembers = false);
+    }
+  }
+
+  // ===== Join Request Methods =====
+  Future<void> _applyJoinClub() async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isLoggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先登录')),
+      );
+      return;
+    }
+
+    try {
+      final res = await _api.post('/api/clubs/${widget.clubId}/join-request');
+      if (res['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('申请已提交，等待管理员审核')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(res['error'] ?? '申请失败')),
+          );
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('网络错误'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadJoinRequests() async {
+    setState(() => _loadingJoinRequests = true);
+    try {
+      final res = await _api.get('/api/clubs/${widget.clubId}/join-requests');
+      if (res['success'] == true && res['data'] != null) {
+        setState(() {
+          _joinRequests = (res['data'] as List).cast<Map<String, dynamic>>();
+          _loadingJoinRequests = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingJoinRequests = false);
+    }
+  }
+
+  Future<void> _approveJoinRequest(String requestId) async {
+    try {
+      final res = await _api.post('/api/clubs/${widget.clubId}/join-request/$requestId/approve');
+      if (res['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('已批准加入')),
+          );
+          _loadJoinRequests();
+          _loadClub();
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('操作失败'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _rejectJoinRequest(String requestId) async {
+    try {
+      final res = await _api.post('/api/clubs/${widget.clubId}/join-request/$requestId/reject');
+      if (res['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('已拒绝')),
+          );
+          _loadJoinRequests();
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('操作失败'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -275,6 +369,7 @@ class _ClubDetailPageState extends State<ClubDetailPage> with SingleTickerProvid
   }
 
   Widget _buildClubDetail(Map<String, dynamic> c, List<String> sportTypes, List<Map<String, dynamic>> members, int totalMembers) {
+    final auth = context.watch<AuthProvider>();
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -363,6 +458,114 @@ class _ClubDetailPageState extends State<ClubDetailPage> with SingleTickerProvid
                   label: Text('展开 ${totalMembers - members.length} 位成员'),
                 ),
               ),
+
+          // 申请加入按钮（非成员显示）
+          if (!members.any((m) => m['id'] == auth.user?['user_id'])) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _applyJoinClub,
+                icon: const Icon(Icons.person_add),
+                label: const Text('申请加入俱乐部'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+          ],
+
+          // 审核申请（仅创建者可见）
+          if (c['creator_id'] == auth.user?['user_id']) ...[
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('📋 加入审核', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                TextButton.icon(
+                  onPressed: _loadJoinRequests,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('刷新', style: TextStyle(fontSize: 13)),
+                ),
+              ],
+            ),
+            if (_loadingJoinRequests)
+              const Center(child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(),
+              ))
+            else if (_joinRequests.isEmpty)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Center(
+                    child: Text('暂无待审核的申请', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+                  ),
+                ),
+              )
+            else
+              ..._joinRequests.map((req) {
+                final reqStatus = req['status'] as String? ?? 'pending';
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor: AppTheme.primary.withOpacity(0.2),
+                          child: Text(
+                            (req['nickname'] ?? '?').toString().substring(0, 1).toUpperCase(),
+                            style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(req['nickname'] ?? '用户', style: const TextStyle(fontWeight: FontWeight.w600)),
+                              Text('Email: ${req['email'] ?? ''}', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                            ],
+                          ),
+                        ),
+                        if (reqStatus == 'pending')
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextButton(
+                                onPressed: () => _approveJoinRequest(req['id']),
+                                style: TextButton.styleFrom(foregroundColor: Colors.green),
+                                child: const Text('通过', style: TextStyle(fontSize: 13)),
+                              ),
+                              TextButton(
+                                onPressed: () => _rejectJoinRequest(req['id']),
+                                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                child: const Text('拒绝', style: TextStyle(fontSize: 13)),
+                              ),
+                            ],
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: reqStatus == 'approved' ? Colors.green.shade50 : Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              reqStatus == 'approved' ? '已通过' : '已拒绝',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: reqStatus == 'approved' ? Colors.green : Colors.red,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
           ],
           const SizedBox(height: 32),
         ],

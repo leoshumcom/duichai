@@ -406,6 +406,44 @@ CREATE TABLE IF NOT EXISTS club_message_mentions (
 
 CREATE INDEX idx_club_mention_message ON club_message_mentions(message_id);
 
+-- 35. 约球/匹配活动
+CREATE TABLE IF NOT EXISTS match_sessions (
+    id TEXT PRIMARY KEY,
+    venue_id TEXT NOT NULL REFERENCES venues(id),
+    creator_id TEXT NOT NULL REFERENCES users(id),
+    match_time TEXT NOT NULL,
+    max_players INTEGER NOT NULL DEFAULT 2,
+    current_players INTEGER NOT NULL DEFAULT 1,
+    notes TEXT,
+    status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','full','cancelled','finished')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX idx_match_venue ON match_sessions(venue_id, status);
+CREATE INDEX idx_match_time ON match_sessions(match_time);
+
+-- 36. 约球参与者
+CREATE TABLE IF NOT EXISTS match_joiners (
+    id TEXT PRIMARY KEY,
+    match_id TEXT NOT NULL REFERENCES match_sessions(id),
+    user_id TEXT NOT NULL REFERENCES users(id),
+    joined_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(match_id, user_id)
+);
+
+CREATE INDEX idx_match_joiner_match ON match_joiners(match_id);
+
+-- 37. 俱乐部加入申请
+CREATE TABLE IF NOT EXISTS club_join_requests (
+    id TEXT PRIMARY KEY,
+    club_id TEXT NOT NULL REFERENCES clubs(id),
+    user_id TEXT NOT NULL REFERENCES users(id),
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX idx_club_join_requests ON club_join_requests(club_id, status);
+
 -- 34. 会话表（Token持久化）
 CREATE TABLE IF NOT EXISTS sessions (
     token TEXT PRIMARY KEY,
@@ -413,6 +451,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     expires_at TEXT NOT NULL DEFAULT (datetime('now', '+30 days'))
 );
+
+CREATE INDEX idx_club_join_requests_user ON club_join_requests(user_id);
 
 CREATE INDEX idx_sessions_user ON sessions(user_id);
 CREATE INDEX idx_sessions_expires ON sessions(expires_at);

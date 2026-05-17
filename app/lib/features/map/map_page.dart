@@ -1,7 +1,8 @@
+import 'package:amap_flutter_map/amap_flutter_map.dart';
+import 'package:amap_flutter_base/amap_flutter_base.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import '../../core/app_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/network/api_client.dart';
 
@@ -13,11 +14,11 @@ class MapPage extends StatefulWidget {
 
 class _MapPageState extends State<MapPage> {
   final _api = ApiClient();
-  final MapController _mapController = MapController();
+  late AMapController _mapController;
   List<Map<String, dynamic>> _venues = [];
   bool _loading = true;
-  bool _mapError = false;
   LatLng _center = const LatLng(39.9042, 116.4074);
+  Set<Marker> _markers = {};
 
   @override
   void initState() {
@@ -26,13 +27,6 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<void> _initLocation() async {
-    try {
-      LocationPermission perm = await Geolocator.requestPermission();
-      if (perm == LocationPermission.always || perm == LocationPermission.whileInUse) {
-        final pos = await Geolocator.getCurrentPosition();
-        if (pos != null) _center = LatLng(pos.latitude, pos.longitude);
-      }
-    } catch (_) {}
     _loadVenues();
   }
 
@@ -44,9 +38,23 @@ class _MapPageState extends State<MapPage> {
         'radius': '10', 'limit': '50',
       });
       if (res['success'] == true && mounted) {
+        final venues = (res['data'] as List?)?.cast<Map<String, dynamic>>() ?? [];
         setState(() {
-          _venues = (res['data'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+          _venues = venues;
           _loading = false;
+          _markers = venues.map((v) {
+            final lat = (v['latitude'] as num?)?.toDouble() ?? 0;
+            final lng = (v['longitude'] as num?)?.toDouble() ?? 0;
+            return Marker(
+              position: LatLng(lat, lng),
+              icon: BitmapDescriptor.defaultMarker,
+              infoWindowEnable: true,
+              infoWindow: InfoWindow(title: v['name'] ?? '', snippet: '🔥 ${v['chaihuo_total'] ?? 0}'),
+              onTap: (id) {
+                Navigator.pushNamed(context, '/venue/detail', arguments: v['id']);
+              },
+            );
+          }).toSet();
         });
       } else if (mounted) {
         setState(() => _loading = false);
@@ -60,7 +68,7 @@ class _MapPageState extends State<MapPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Map'),
+        title: const Text('地图'),
         actions: [
           IconButton(
             icon: const Icon(Icons.my_location),
@@ -68,13 +76,14 @@ class _MapPageState extends State<MapPage> {
               try {
                 final pos = await Geolocator.getCurrentPosition();
                 if (pos != null) {
-                  setState(() => _center = LatLng(pos.latitude, pos.longitude));
-                  _mapController.move(_center, 14);
+                  final latLng = LatLng(pos.latitude, pos.longitude);
+                  setState(() => _center = latLng);
+                  _mapController.moveCamera(CameraUpdate.newLatLngZoom(latLng, 14));
                   _loadVenues();
                 }
               } catch (_) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Location failed'), duration: Duration(seconds: 1)),
+                  const SnackBar(content: Text('定位失败'), duration: Duration(seconds: 1)),
                 );
               }
             },
@@ -83,75 +92,31 @@ class _MapPageState extends State<MapPage> {
       ),
       body: Stack(
         children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(initialCenter: _center, initialZoom: 14),
-            children: [
-              // 多层图源: OSM主站 -> OSM德国镜像 -> 备用
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                fallbackUrl: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.duichai.duichai',
-                maxZoom: 18,
-                errorImage: const AssetImage('assets/images/tile_error.png'),
-              ),
-              // 额外备用图源
-              TileLayer(
-                urlTemplate: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}',
-                userAgentPackageName: 'com.duichai.duichai',
-                maxZoom: 16,
-              ),
-              MarkerLayer(
-                markers: _venues.map((v) {
-                  final lat = (v['latitude'] as num?)?.toDouble() ?? 0;
-                  final lng = (v['longitude'] as num?)?.toDouble() ?? 0;
-                  return Marker(
-                    point: LatLng(lat, lng),
-                    width: 40,
-                    height: 40,
-                    child: GestureDetector(
-                      onTap: () => Navigator.pushNamed(context, '/venue/detail', arguments: v['id']),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 4)],
-                        ),
-                        child: const Icon(Icons.local_fire_department, color: Colors.white, size: 18),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
-          // 地图加载错误提示
-          if (_mapError)
-            Positioned(
-              top: 16, left: 16, right: 16,
-              child: Material(
-                elevation: 2,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.warning_amber, color: Colors.orange.shade700, size: 20),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text('地图瓦片加载失败，已切换到备用图源',
-                          style: TextStyle(fontSize: 13, color: Colors.black87)),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+          AMapWidget(
+            apiKey: AMapApiKey(
+              androidKey: AppConfig.amapApiKey,
+              iosKey: AppConfig.amapIosKey,
             ),
+            privacyStatement: const AMapPrivacyStatement(
+              hasContains: true,
+              hasShow: true,
+              hasAgree: true,
+            ),
+            initialCameraPosition: CameraPosition(
+              target: _center,
+              zoom: 14,
+            ),
+            myLocationStyleOptions: const MyLocationStyleOptions(
+              true,
+              circleFillColor: Colors.lightBlue,
+              circleStrokeColor: Colors.blue,
+              circleStrokeWidth: 2,
+            ),
+            markers: _markers,
+            onMapCreated: (controller) {
+              _mapController = controller;
+            },
+          ),
           if (_venues.isNotEmpty)
             Positioned(
               left: 8, right: 8, bottom: 8,

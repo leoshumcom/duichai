@@ -30,7 +30,7 @@ async function generateNextUid(env: Env): Promise<number> {
 export async function handleRegister(request: Request, env: Env): Promise<Response> {
   try {
     const body: any = await request.json();
-    const { email, password, nickname, phone } = body;
+    const { email, password, nickname, phone, invite_code } = body;
 
     if (!email || !password || !nickname) {
       return jsonResponse({ error: 'email, password, nickname 为必填' }, 400);
@@ -52,19 +52,61 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
     const inviteCode = generateInviteCode();
     const uid = await generateNextUid(env);
 
+    // 检查邀请码
+    let inviterId: string | null = null;
+    if (invite_code) {
+      const inviter: any = await env.duichai_db.prepare(
+        'SELECT id FROM users WHERE invite_code = ?'
+      ).bind(invite_code).first();
+      if (inviter) {
+        inviterId = inviter.id;
+      }
+    }
+
     await env.duichai_db.prepare(`
-      INSERT INTO users (id, email, nickname, phone, password_hash, invite_code, chaihuo_balance, uid)
-      VALUES (?, ?, ?, ?, ?, ?, 1, ?)
-    `).bind(id, email, nickname, phone || null, passwordHash, inviteCode, uid).run();
+      INSERT INTO users (id, email, nickname, phone, password_hash, invite_code, invited_by, chaihuo_balance, uid)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
+    `).bind(id, email, nickname, phone || null, passwordHash, inviteCode, inviterId, uid).run();
 
     await env.duichai_db.prepare(`
       INSERT INTO chaihuo_transactions (id, user_id, type, amount, balance_after, description)
       VALUES (?, ?, 'login_bonus', 1, 1, '注册赠送1根柴火')
     `).bind(generateId(), id).run();
 
+    // 邀请奖励：双方各+10柴火
+    if (inviterId) {
+      // 记录邀请关系
+      await env.duichai_db.prepare(`
+        INSERT INTO invites (id, inviter_id, invitee_id, reward_chaihuo)
+        VALUES (?, ?, ?, 10)
+      `).bind(generateId(), inviterId, id).run();
+
+      // 给邀请者+10
+      const inviterUser: any = await env.duichai_db.prepare(
+        'SELECT chaihuo_balance FROM users WHERE id = ?'
+      ).bind(inviterId).first();
+      const inviterNewBalance = (inviterUser?.chaihuo_balance || 0) + 10;
+      await env.duichai_db.prepare(
+        'UPDATE users SET chaihuo_balance = ?, total_chaihuo_earned = total_chaihuo_earned + 10 WHERE id = ?'
+      ).bind(inviterNewBalance, inviterId).run();
+      await env.duichai_db.prepare(`
+        INSERT INTO chaihuo_transactions (id, user_id, type, amount, balance_after, reference_id, reference_type, description)
+        VALUES (?, ?, 'invite', 10, ?, ?, 'invite', '邀请好友奖励')
+      `).bind(generateId(), inviterId, inviterNewBalance, id).run();
+
+      // 给被邀请者+10
+      await env.duichai_db.prepare(
+        'UPDATE users SET chaihuo_balance = chaihuo_balance + 10, total_chaihuo_earned = total_chaihuo_earned + 10 WHERE id = ?'
+      ).bind(id).run();
+      await env.duichai_db.prepare(`
+        INSERT INTO chaihuo_transactions (id, user_id, type, amount, balance_after, description)
+        VALUES (?, ?, 'invite', 10, 11, '使用邀请码奖励')
+      `).bind(generateId(), id).run();
+    }
+
     return jsonResponse({
       success: true,
-      message: '注册成功',
+      message: '注册成功' + (inviterId ? '，获得10根邀请奖励柴火🔥' : ''),
       data: { user_id: id, uid, nickname, invite_code: inviteCode },
     }, 201);
   } catch (e) {

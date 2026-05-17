@@ -104,6 +104,7 @@ export async function handleSearchVenues(request: Request, env: Env): Promise<Re
   const lng = parseFloat(url.searchParams.get('lng') || '0');
   const radius = parseFloat(url.searchParams.get('radius') || '5'); // 公里
   const type = url.searchParams.get('type');
+  const city = url.searchParams.get('city');
   const sort = url.searchParams.get('sort') || 'chaihuo'; // chaihuo | newest | distance
   const page = parseInt(url.searchParams.get('page') || '1');
   const limit = parseInt(url.searchParams.get('limit') || '20');
@@ -123,6 +124,11 @@ export async function handleSearchVenues(request: Request, env: Env): Promise<Re
   if (type && type !== 'all') {
     query += ' AND type LIKE ?';
     params.push(`%${type}%`);
+  }
+  // 城市模糊搜索——通过场地地址字段匹配
+  if (city && city !== '全国' && city !== '') {
+    query += ' AND address LIKE ?';
+    params.push(`%${city}%`);
   }
 
   switch (sort) {
@@ -253,6 +259,134 @@ export async function handleSupplementVenue(request: Request, env: Env): Promise
     `).bind(generateId(), venue_id, user_id, content, JSON.stringify(photos || [])).run();
 
     return jsonResponse({ success: true, message: '补充提交成功，审核通过后将获得5根柴火' });
+  } catch (e) {
+    return jsonResponse({ error: '服务器错误' }, 500);
+  }
+}
+
+// 约球匹配——创建约球
+async function getUserIdFromToken(request: Request, env: Env): Promise<string | null> {
+  const auth = request.headers.get('Authorization');
+  if (!auth || !auth.startsWith('Bearer ')) return null;
+  const token = auth.slice(7);
+  const session: any = await env.duichai_db.prepare(
+    'SELECT user_id FROM sessions WHERE token = ?'
+  ).bind(token).first();
+  return session?.user_id || null;
+}
+
+export async function handleCreateMatch(request: Request, env: Env, venueId: string): Promise<Response> {
+  try {
+    const userId = await getUserIdFromToken(request, env);
+    if (!userId) return jsonResponse({ error: '未登录' }, 401);
+
+    const body: any = await request.json();
+    const { match_time, max_players, notes } = body;
+
+    if (!match_time || !max_players) {
+      return jsonResponse({ error: 'match_time, max_players 为必填' }, 400);
+    }
+
+    const id = generateId();
+    await env.duichai_db.prepare(`
+      INSERT INTO match_sessions (id, venue_id, creator_id, match_time, max_players, current_players, notes)
+      VALUES (?, ?, ?, ?, ?, 1, ?)
+    `).bind(id, venueId, userId, match_time, max_players, notes || null).run();
+
+    // 创建者自动加入
+    await env.duichai_db.prepare(`
+      INSERT INTO match_joiners (id, match_id, user_id)
+      VALUES (?, ?, ?)
+    `).bind(generateId(), id, userId).run();
+
+    return jsonResponse({ success: true, match_id: id, message: '约球创建成功' }, 201);
+  } catch (e) {
+    return jsonResponse({ error: '服务器错误' }, 500);
+  }
+}
+
+// 获取场地约球列表
+export async function handleGetVenueMatches(request: Request, env: Env, venueId: string): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const status = url.searchParams.get('status') || 'open'; // open | full | closed
+
+    let query = `
+      SELECT ms.*, u.nickname as creator_name, u.avatar as creator_avatar
+      FROM match_sessions ms
+      LEFT JOIN users u ON ms.creator_id = u.id
+      WHERE ms.venue_id = ?
+    `;
+    const params: any[] = [venueId];
+
+    if (status === 'open') {
+      query += ' AND ms.status = \'open\'';
+    }
+
+    query += ' ORDER BY ms.match_time ASC LIMIT 20';
+
+    const sessions: any[] = await env.duichai_db.prepare(query).bind(...params).all();
+
+    // 获取每个约球的参与者数量
+    const parsed = await Promise.all(sessions.results.map(async (s: any) => {
+      const joinerCount: any = await env.duichai_db.prepare(
+        'SELECT COUNT(*) as count FROM match_joiners WHERE match_id = ?'
+      ).bind(s.id).first();
+      return {
+        ...s,
+        current_players: joinerCount?.count || 0,
+      };
+    }));
+
+    return jsonResponse({ success: true, data: parsed });
+  } catch (e) {
+    return jsonResponse({ error: '服务器错误' }, 500);
+  }
+}
+
+// 加入约球
+export async function handleJoinMatch(request: Request, env: Env, matchId: string): Promise<Response> {
+  try {
+    const userId = await getUserIdFromToken(request, env);
+    if (!userId) return jsonResponse({ error: '未登录' }, 401);
+
+    // 检查约球是否存在且开放
+    const match: any = await env.duichai_db.prepare(
+      'SELECT * FROM match_sessions WHERE id = ?'
+    ).bind(matchId).first();
+
+    if (!match) return jsonResponse({ error: '约球不存在' }, 404);
+    if (match.status !== 'open') return jsonResponse({ error: '该约球已结束' }, 400);
+
+    // 检查是否已加入
+    const existing = await env.duichai_db.prepare(
+      'SELECT id FROM match_joiners WHERE match_id = ? AND user_id = ?'
+    ).bind(matchId, userId).first();
+
+    if (existing) return jsonResponse({ error: '已加入该约球' }, 409);
+
+    // 检查人数上限
+    const countResult: any = await env.duichai_db.prepare(
+      'SELECT COUNT(*) as count FROM match_joiners WHERE match_id = ?'
+    ).bind(matchId).first();
+
+    if (countResult.count >= match.max_players) {
+      return jsonResponse({ error: '约球人数已满' }, 400);
+    }
+
+    await env.duichai_db.prepare(`
+      INSERT INTO match_joiners (id, match_id, user_id)
+      VALUES (?, ?, ?)
+    `).bind(generateId(), matchId, userId).run();
+
+    // 如果满了，更新状态
+    if (countResult.count + 1 >= match.max_players) {
+      await env.duichai_db.prepare(
+        "UPDATE match_sessions SET status = 'full' WHERE id = ?"
+      ).bind(matchId).run();
+    }
+
+    return jsonResponse({ success: true, message: '已加入约球' });
   } catch (e) {
     return jsonResponse({ error: '服务器错误' }, 500);
   }

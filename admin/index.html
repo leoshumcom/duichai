@@ -30,6 +30,8 @@ input,select{padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:
 button{padding:10px 20px;background:#FF6B35;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px}
 button:hover{background:#e85a28}
 button.secondary{background:#f0f0f0;color:#333}
+.btn-sm{padding:6px 12px;font-size:13px}
+.apikey-input{font-family:monospace;font-size:12px;color:#666}
 .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px}
 .badge.green{background:#E8F5E9;color:#4CAF50}
 .badge.red{background:#FFEBEE;color:#F44336}
@@ -37,6 +39,8 @@ button.secondary{background:#f0f0f0;color:#333}
 .result{font-size:13px;margin-top:8px;padding:8px;border-radius:4px}
 .result.success{background:#E8F5E9;color:#4CAF50}
 .result.error{background:#FFEBEE;color:#F44336}
+.login-notice{text-align:center;padding:32px}
+.login-notice p{color:#999;margin-bottom:16px}
 @media(max-width:768px){.sidebar{width:0;overflow:hidden}.main{margin-left:0}}
 </style>
 </head>
@@ -49,8 +53,16 @@ button.secondary{background:#f0f0f0;color:#333}
     <a href="#" onclick="showPage('users')">👤 用户管理</a>
     <a href="#" onclick="showPage('venues')">🏟 场地管理</a>
   </nav>
+  <div style="position:absolute;bottom:24px;left:24px;right:24px">
+    <button onclick="showLoginModal()" style="width:100%;font-size:13px" class="secondary" id="loginBtn">🔑 管理员登录</button>
+    <p id="loginStatus" style="font-size:12px;color:#666;margin-top:8px;text-align:center">未登录</p>
+  </div>
 </div>
 <div class="main">
+
+<!-- Login Modal -->
+<div id="loginModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center">
+</div>
 
 <!-- Dashboard -->
 <div id="page-dashboard">
@@ -100,9 +112,18 @@ button.secondary{background:#f0f0f0;color:#333}
   <div class="section">
     <h3>发放柴火</h3>
     <div style="display:flex;flex-direction:column;gap:12px;max-width:400px">
-      <input type="email" id="grantEmail" placeholder="用户邮箱" value="leoshum.com@gmail.com">
-      <input type="number" id="grantAmount" placeholder="柴火数量" value="100">
-      <input type="text" id="grantReason" placeholder="发放原因（选填）" value="管理员发放">
+      <div>
+        <label style="font-size:13px;color:#666;display:block;margin-bottom:4px">用户邮箱</label>
+        <input type="email" id="grantEmail" placeholder="用户邮箱" value="leoshum.com@gmail.com">
+      </div>
+      <div>
+        <label style="font-size:13px;color:#666;display:block;margin-bottom:4px">柴火数量</label>
+        <input type="number" id="grantAmount" placeholder="柴火数量" value="100">
+      </div>
+      <div>
+        <label style="font-size:13px;color:#666;display:block;margin-bottom:4px">发放原因（选填）</label>
+        <input type="text" id="grantReason" placeholder="发放原因" value="管理员发放">
+      </div>
       <button onclick="grantChaihuo()">发放柴火</button>
       <div id="grantResult"></div>
     </div>
@@ -110,7 +131,7 @@ button.secondary{background:#f0f0f0;color:#333}
   <div class="section">
     <h3>管理员信息</h3>
     <p>管理员密码: <code>duichai_admin_2026</code></p>
-    <p style="margin-top:8px;color:#999;font-size:13px">登录方式: POST /api/admin/login 传入 email + password</p>
+    <p style="margin-top:8px;color:#999;font-size:13px">登录方式: 点击左侧底部「管理员登录」按钮，输入邮箱和管理员密码</p>
   </div>
 </div>
 
@@ -133,9 +154,24 @@ button.secondary{background:#f0f0f0;color:#333}
 </div>
 </div>
 
+<!-- Login Modal Dialog -->
+<div id="loginModalOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:32px;width:360px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
+    <h3 style="margin-bottom:20px;font-size:20px;color:#1A1A1A">🔑 管理员登录</h3>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <input type="email" id="loginModalEmail" placeholder="管理员邮箱" value="leoshum.com@gmail.com" style="max-width:100%;padding:10px 12px">
+      <input type="password" id="loginModalPassword" placeholder="管理员密码" style="max-width:100%;padding:10px 12px">
+      <button onclick="doLogin()" style="width:100%;padding:12px">登录</button>
+      <div id="loginModalResult"></div>
+      <button onclick="closeLoginModal()" style="background:transparent;color:#999;width:100%;padding:8px">取消</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let adminToken = localStorage.getItem('adminToken');
 let adminEmail = localStorage.getItem('adminEmail');
+let adminNickname = localStorage.getItem('adminNickname') || '管理员';
 
 function updateDate() {
   const now = new Date();
@@ -143,6 +179,35 @@ function updateDate() {
 }
 updateDate();
 setInterval(updateDate, 60000);
+
+function updateLoginUI() {
+  const btn = document.getElementById('loginBtn');
+  const status = document.getElementById('loginStatus');
+  if (adminToken) {
+    btn.textContent = '👤 ' + adminNickname;
+    btn.style.background = '#4CAF50';
+    btn.style.color = '#fff';
+    status.textContent = '已登录';
+    status.style.color = '#4CAF50';
+  } else {
+    btn.textContent = '🔑 管理员登录';
+    btn.style.background = '#f0f0f0';
+    btn.style.color = '#333';
+    status.textContent = '未登录';
+    status.style.color = '#999';
+  }
+}
+
+function showLoginModal() {
+  document.getElementById('loginModalOverlay').style.display = 'flex';
+  document.getElementById('loginModalEmail').value = adminEmail || 'leoshum.com@gmail.com';
+  document.getElementById('loginModalPassword').value = '';
+  document.getElementById('loginModalResult').innerHTML = '';
+}
+
+function closeLoginModal() {
+  document.getElementById('loginModalOverlay').style.display = 'none';
+}
 
 function showPage(name) {
   document.querySelectorAll('.main > div[id^="page-"]').forEach(el => el.style.display = 'none');
@@ -161,26 +226,37 @@ async function api(path, method = 'GET', body = null) {
   return res.json();
 }
 
-async function login() {
-  const email = prompt('管理员邮箱:', adminEmail || 'leoshum.com@gmail.com');
-  if (!email) return;
-  const password = prompt('管理员密码:');
-  if (!password) return;
+async function doLogin() {
+  const email = document.getElementById('loginModalEmail').value.trim();
+  const password = document.getElementById('loginModalPassword').value;
+  const resultEl = document.getElementById('loginModalResult');
+
+  if (!email || !password) {
+    resultEl.innerHTML = '<div class="result error">请填写邮箱和密码</div>';
+    return;
+  }
+
+  resultEl.innerHTML = '<div style="color:#999;font-size:13px">正在登录...</div>';
+
   const res = await api('/api/admin/login', 'POST', { email, password });
   if (res.success) {
     adminToken = res.data.token;
     adminEmail = email;
+    adminNickname = res.data.nickname || '管理员';
     localStorage.setItem('adminToken', adminToken);
     localStorage.setItem('adminEmail', adminEmail);
-    alert('登录成功！');
+    localStorage.setItem('adminNickname', adminNickname);
+    updateLoginUI();
+    resultEl.innerHTML = '<div class="result success">✅ 登录成功！</div>';
+    setTimeout(closeLoginModal, 1000);
     refreshDashboard();
   } else {
-    alert('登录失败: ' + (res.error || 'unknown'));
+    resultEl.innerHTML = '<div class="result error">❌ ' + (res.error || '登录失败') + '</div>';
   }
 }
 
 async function refreshDashboard() {
-  if (!adminToken) { login(); return; }
+  if (!adminToken) { return; }
   const res = await api('/api/admin/stats');
   if (res.success && res.data) {
     document.getElementById('totalUsers').textContent = res.data.total_users;
@@ -196,42 +272,45 @@ async function refreshDashboard() {
 }
 
 async function grantChaihuo() {
-  const email = document.getElementById('grantEmail').value;
+  const email = document.getElementById('grantEmail').value.trim();
   const amount = parseInt(document.getElementById('grantAmount').value);
   const reason = document.getElementById('grantReason').value || '管理员发放';
   const el = document.getElementById('grantResult');
-  
-  if (!adminToken) { login(); return; }
-  if (!email || !amount) { el.innerHTML = '<div class="result error">请填写邮箱和数量</div>'; return; }
-  
+
+  if (!email || !amount || amount < 1) {
+    el.innerHTML = '<div class="result error">请填写邮箱和有效的数量</div>';
+    return;
+  }
+
+  if (!adminToken) {
+    showLoginModal();
+    return;
+  }
+
+  el.innerHTML = '<div style="color:#999;font-size:13px">处理中...</div>';
+
   const res = await api('/api/admin/grant-chaihuo', 'POST', { email, amount, reason });
   if (res.success) {
-    el.innerHTML = `<div class="result success">✅ ${res.data.email}: ${res.data.previous_balance} → ${res.data.new_balance} (+${res.data.amount})</div>`;
+    el.innerHTML = '<div class="result success">✅ ' + res.data.email + ': ' + res.data.previous_balance + ' → ' + res.data.new_balance + ' (+' + res.data.amount + ')</div>';
   } else {
-    el.innerHTML = `<div class="result error">❌ ${res.error || '失败'}</div>`;
+    el.innerHTML = '<div class="result error">❌ ' + (res.error || '发放失败') + '</div>';
   }
 }
 
 async function refreshUsers() {
-  if (!adminToken) { login(); return; }
-  // Simplified - just check known users
-  const email = document.getElementById('grantEmail')?.value || 'leoshum.com@gmail.com';
+  if (!adminToken) { return; }
   const res = await api('/api/admin/stats');
   const tb = document.getElementById('userTable');
   if (res.success) {
-    tb.innerHTML = `<tr><td>leoshum.com@gmail.com</td><td>66哥</td><td>6000🔥</td><td><span class="badge green">admin</span></td></tr>
-      <tr><td colspan="4" style="text-align:center;color:#999;font-size:13px">使用API查询更多用户: GET /api/users/:id</td></tr>`;
+    tb.innerHTML = '<tr><td>leoshum.com@gmail.com</td><td>66哥</td><td>' + (res.data.total_chaihuo || '?') + '🔥</td><td><span class="badge green">admin</span></td></tr>';
   }
 }
 
-// Auto-refresh every 30s
-setInterval(refreshDashboard, 30000);
-
-// Try to login on page load if not authenticated
-if (!adminToken) {
-  if (confirm('需要管理员登录，是否现在登录？')) login();
+// Init
+updateLoginUI();
+if (adminToken) {
+  refreshDashboard();
 }
-refreshDashboard();
 </script>
 </body>
 </html>
