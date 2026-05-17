@@ -1,0 +1,56 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build Flutter APK
+
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build APK (${{ github.event.inputs.build_type || 'debug' }})
+        run: flutter build apk --${{ github.event.inputs.build_type || 'debug' }}
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: duichai-apk-${{ github.event.inputs.build_type || 'debug' }}
+          path: app/build/app/outputs/flutter-apk/app-*.apk
+          retention-days: 30
