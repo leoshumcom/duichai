@@ -220,17 +220,23 @@ class _DiscoverPageState extends State<DiscoverPage> {
                       height: 36,
                       child: ListView(
                         scrollDirection: Axis.horizontal,
-                        children: ['🔥 推荐', '🏀 篮球', '⚽ 足球', '🏸 羽毛球', '🎾 网球', '🏃 跑步'].map((t) =>
-                          Padding(
+                        children: ['🔥 推荐', '🏀 篮球', '⚽ 足球', '🏸 羽毛球', '🎾 网球', '🏃 跑步'].map((t) {
+                          final tag = t.substring(2);
+                          return Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: ChoiceChip(
                               label: Text(t, style: const TextStyle(fontSize: 13)),
-                              selected: false,
+                              selected: _selectedType == tag || (t == '🔥 推荐' && _selectedType.isEmpty),
                               selectedColor: AppTheme.primary.withOpacity(0.15),
-                              onSelected: (_) {},
+                              onSelected: (_) {
+                                setState(() {
+                                  _selectedType = t == '🔥 推荐' ? '' : tag;
+                                });
+                                _loadVenues();
+                              },
                             ),
-                          )
-                        ).toList(),
+                          );
+                        }).toList(),
                       ),
                     ),
                     const SizedBox(height: 16),

@@ -168,7 +168,11 @@ class _LoginPageState extends State<LoginPage> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('请联系管理员重置密码')),
+                    );
+                  },
                   child: const Text('忘记密码？', style: TextStyle(fontSize: 13)),
                 ),
               ),

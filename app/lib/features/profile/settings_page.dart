@@ -42,9 +42,13 @@ class SettingsPage extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.notifications_outlined, color: AppTheme.primary),
                   title: const Text('通知设置'),
-                  subtitle: const Text('即将上线'),
+                  subtitle: const Text('已开启'),
                   trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                  onTap: () {},
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('通知开关功能开发中')),
+                    );
+                  },
                 ),
                 const Divider(height: 1),
                 ListTile(
