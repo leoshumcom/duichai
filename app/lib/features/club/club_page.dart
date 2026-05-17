@@ -144,6 +144,7 @@ class _CreateClubPageState extends State<CreateClubPage> {
   final _contactCtrl = TextEditingController();
   List<String> _sports = [];
   bool _loading = false;
+  final _api = ApiClient();
 
   final _allSports = ['篮球', '足球', '羽毛球', '网球', '乒乓球', '跑步', '游泳', '滑板', '瑜伽', '健身', '骑行', '徒步'];
 

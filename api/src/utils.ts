@@ -20,7 +20,12 @@ export function corsHeaders(request: Request): Record<string, string> {
 }
 
 export function generateId(): string {
-  return crypto.randomUUID();
+  // crypto.randomUUID() 在Cloudflare Workers部分版本不可用
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 }
 
 export function generateInviteCode(): string {

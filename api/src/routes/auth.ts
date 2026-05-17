@@ -20,7 +20,6 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
       return jsonResponse({ error: '密码至少6位' }, 400);
     }
 
-    // 检查邮箱是否已注册
     const existing = await env.duichai_db.prepare(
       'SELECT id FROM users WHERE email = ?'
     ).bind(email).first();
@@ -38,7 +37,6 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
       VALUES (?, ?, ?, ?, ?, ?, 1)
     `).bind(id, email, nickname, phone || null, passwordHash, inviteCode).run();
 
-    // 记录登录奖励
     await env.duichai_db.prepare(`
       INSERT INTO chaihuo_transactions (id, user_id, type, amount, balance_after, description)
       VALUES (?, ?, 'login_bonus', 1, 1, '注册赠送1根柴火')
@@ -71,15 +69,15 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
       return jsonResponse({ error: '邮箱或密码错误' }, 401);
     }
 
+    // 验证密码
     const valid = await verifyPassword(password, user.password_hash);
     if (!valid) {
       return jsonResponse({ error: '邮箱或密码错误' }, 401);
     }
 
-    // 生成Token并存入session表
-    const token = generateId() + '-' + generateId();
+    const token = generateId() + '-' + generateId().substring(0, 8);
     await env.duichai_db.prepare(
-      'INSERT OR REPLACE INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, datetime("now"), datetime("now", "+30 days"))'
+      'INSERT OR REPLACE INTO sessions (token, user_id) VALUES (?, ?)'
     ).bind(token, user.id).run();
 
     return jsonResponse({
@@ -101,26 +99,24 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
   }
 }
 
-/// 通过Token获取当前用户
 async function getUserFromToken(request: Request, env: Env): Promise<any | null> {
   const auth = request.headers.get('Authorization');
   if (!auth || !auth.startsWith('Bearer ')) return null;
   const token = auth.slice(7);
-  
+
   const session: any = await env.duichai_db.prepare(
-    'SELECT user_id FROM sessions WHERE token = ? AND expires_at > datetime("now")'
+    'SELECT user_id FROM sessions WHERE token = ?'
   ).bind(token).first();
-  
+
   if (!session) return null;
-  
+
   const user: any = await env.duichai_db.prepare(
     'SELECT id, email, nickname, phone, avatar, role, level, chaihuo_balance, total_chaihuo_earned, invite_code, created_at FROM users WHERE id = ?'
   ).bind(session.user_id).first();
-  
+
   return user;
 }
 
-/// 获取当前登录用户信息（通过Token）
 export async function handleGetMe(request: Request, env: Env): Promise<Response> {
   const user = await getUserFromToken(request, env);
   if (!user) {
