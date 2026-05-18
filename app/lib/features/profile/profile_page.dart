@@ -183,11 +183,79 @@ class _ProfilePageState extends State<ProfilePage> {
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
-                child: Row(
+                child: Column(
                   children: [
-                    _statItem('🔥', '${user?['chaihuo_balance'] ?? 0}', '柴火余额'),
-                    const SizedBox(width: 32),
-                    _statItem('📈', 'Lv.${user?['level'] ?? 1}', '用户等级'),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            children: [
+                              const Text('🔥', style: TextStyle(fontSize: 24)),
+                              const SizedBox(height: 4),
+                              Text('${user?['chaihuo_balance'] ?? 0}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                              Text('柴火余额', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            children: [
+                              const Text('📈', style: TextStyle(fontSize: 24)),
+                              const SizedBox(height: 4),
+                              Text('Lv.${user?['level'] ?? 1}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                              Text('用户等级', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Level Progress
+                    FutureBuilder<Map<String, dynamic>>(
+                      future: _loadLevelInfo(),
+                      builder: (ctx, snap) {
+                        if (!snap.hasData) return const SizedBox.shrink();
+                        final info = snap.data!;
+                        final currentName = info['current_name'] ?? '';
+                        final nextName = info['next_name'];
+                        final progress = info['progress_pct'] ?? 0;
+                        final currentChaihuo = info['current_chaihuo'] ?? 0;
+                        final nextMin = info['next_min_chaihuo'];
+                        final isMax = info['is_max_level'] == true;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(currentName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                Text(
+                                  isMax ? '已达最高等级 🎉' : '下一级: $nextName',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: progress / 100.0,
+                                backgroundColor: Colors.grey.shade200,
+                                valueColor: const AlwaysStoppedAnimation(AppTheme.primary),
+                                minHeight: 8,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              isMax
+                                  ? '当前柴火: $currentChaihuo 🔥'
+                                  : '还需 ${nextMin - currentChaihuo} 柴火升级至 $nextName',
+                              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -197,10 +265,10 @@ class _ProfilePageState extends State<ProfilePage> {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const MyTipsPage()));
             }),
             _menuItem(Icons.stadium_outlined, '我发布的场地', () {
-              Navigator.pushNamed(context, '/venue/list');
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const MyVenuesPage()));
             }),
             _menuItem(Icons.groups_outlined, '我的俱乐部', () {
-              Navigator.pushNamed(context, '/club/create');
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const MyClubsPage()));
             }),
             _menuItem(Icons.star_outline, '我的勋章', () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const BadgesPage()));
@@ -224,6 +292,17 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       ),
     );
+  }
+
+  Future<Map<String, dynamic>> _loadLevelInfo() async {
+    try {
+      final api = ApiClient();
+      final res = await api.get('/api/users/me/level-info');
+      if (res['success'] == true && res['data'] != null) {
+        return res['data'] as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return {};
   }
 
   Future<void> _showAvatarPicker(BuildContext context, AuthProvider auth) async {
@@ -302,6 +381,198 @@ class _ProfilePageState extends State<ProfilePage> {
         trailing: const Icon(Icons.chevron_right, color: Colors.grey),
         onTap: onTap,
       ),
+    );
+  }
+}
+
+/// 我发布的场地页面
+class MyVenuesPage extends StatefulWidget {
+  const MyVenuesPage({super.key});
+
+  @override
+  State<MyVenuesPage> createState() => _MyVenuesPageState();
+}
+
+class _MyVenuesPageState extends State<MyVenuesPage> {
+  final _api = ApiClient();
+  List<Map<String, dynamic>> _venues = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVenues();
+  }
+
+  Future<void> _loadVenues() async {
+    try {
+      final res = await _api.get('/api/users/me/venues');
+      if (res['success'] == true && res['data'] != null) {
+        setState(() {
+          _venues = (res['data'] as List).cast<Map<String, dynamic>>();
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('我发布的场地')),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _venues.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.stadium_outlined, size: 64, color: Colors.grey.shade300),
+                      const SizedBox(height: 16),
+                      Text('还没有发布场地', style: TextStyle(color: Colors.grey.shade500)),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _venues.length,
+                  itemBuilder: (ctx, i) {
+                    final v = _venues[i];
+                    final photos = (v['photos'] as List?)?.cast<String>() ?? [];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: ListTile(
+                        leading: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            width: 60, height: 60,
+                            color: Colors.grey.shade200,
+                            child: photos.isNotEmpty
+                                ? Image.network(photos[0], fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Icon(Icons.sports_basketball))
+                                : const Icon(Icons.sports_basketball, color: Colors.grey),
+                          ),
+                        ),
+                        title: Text(v['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(v['address'] ?? '', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(Icons.local_fire_department, color: AppTheme.primary, size: 14),
+                                const SizedBox(width: 2),
+                                Text('${v['chaihuo_total'] ?? 0}', style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                                const SizedBox(width: 12),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: v['status'] == 'approved' ? Colors.green.shade50 : Colors.orange.shade50,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    v['status'] == 'approved' ? '已发布' : (v['status'] == 'pending' ? '审核中' : v['status'] ?? ''),
+                                    style: TextStyle(fontSize: 11, color: v['status'] == 'approved' ? Colors.green : Colors.orange, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                        onTap: () => Navigator.pushNamed(context, '/venue/detail', arguments: v['id']),
+                      ),
+                    );
+                  },
+                ),
+    );
+  }
+}
+
+/// 我的俱乐部页面
+class MyClubsPage extends StatefulWidget {
+  const MyClubsPage({super.key});
+
+  @override
+  State<MyClubsPage> createState() => _MyClubsPageState();
+}
+
+class _MyClubsPageState extends State<MyClubsPage> {
+  final _api = ApiClient();
+  List<Map<String, dynamic>> _clubs = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadClubs();
+  }
+
+  Future<void> _loadClubs() async {
+    try {
+      final res = await _api.get('/api/users/me/clubs');
+      if (res['success'] == true && res['data'] != null) {
+        setState(() {
+          _clubs = (res['data'] as List).cast<Map<String, dynamic>>();
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('我的俱乐部')),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _clubs.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.groups_outlined, size: 64, color: Colors.grey.shade300),
+                      const SizedBox(height: 16),
+                      Text('还没有加入俱乐部', style: TextStyle(color: Colors.grey.shade500)),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _clubs.length,
+                  itemBuilder: (ctx, i) {
+                    final c = _clubs[i];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: AppTheme.primary.withOpacity(0.2),
+                          child: Text(
+                            (c['name'] ?? '?').toString().substring(0, 1),
+                            style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        title: Row(
+                          children: [
+                            Text(c['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
+                            if (c['role'] != null) ...[const SizedBox(width: 6), Text('(${c['role']})', style: TextStyle(fontSize: 12, color: Colors.grey.shade500))],
+                          ],
+                        ),
+                        subtitle: Text(
+                          '${c['member_count'] ?? 1} 人 · 🔥${c['chaihuo_total'] ?? 0}',
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                        ),
+                        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                        onTap: () => Navigator.pushNamed(context, '/club/detail', arguments: c['id']),
+                      ),
+                    );
+                  },
+                ),
     );
   }
 }

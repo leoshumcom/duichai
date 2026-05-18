@@ -4,7 +4,7 @@ interface Env {
   duichai_db: D1Database;
 }
 
-const ADMIN_MASTER_PASSWORD = 'duichai_admin_2026';
+const ADMIN_MASTER_PASSWORD = 'Qq141516@';
 
 async function getUserByEmailOrUid(env: Env, input: string): Promise<any> {
   // 支持邮箱或UID查找
@@ -215,6 +215,246 @@ export async function handleAdminVenues(request: Request, env: Env): Promise<Res
 }
 
 // Admin approve venue
+// 管理员删除场地（惩罚）
+export async function handleAdminDeleteVenue(request: Request, env: Env, venueId: string): Promise<Response> {
+  try {
+    const venue: any = await env.duichai_db.prepare(
+      'SELECT id, publisher_id, name FROM venues WHERE id = ?'
+    ).bind(venueId).first();
+    if (!venue) return jsonResponse({ error: 'Venue not found' }, 404);
+
+    // 扣除发布者110根柴火（100惩罚+10管理费）
+    const publisherId = venue.publisher_id;
+    const user: any = await env.duichai_db.prepare(
+      'SELECT chaihuo_balance FROM users WHERE id = ?'
+    ).bind(publisherId).first();
+    const deduction = 110;
+    const newBalance = Math.max((user?.chaihuo_balance || 0) - deduction, 0);
+
+    await env.duichai_db.prepare(
+      'UPDATE users SET chaihuo_balance = ? WHERE id = ?'
+    ).bind(newBalance, publisherId).run();
+
+    // 记录扣罚流水
+    await env.duichai_db.prepare(`
+      INSERT INTO chaihuo_transactions (id, user_id, type, amount, balance_after, reference_id, reference_type, description)
+      VALUES (?, ?, 'admin_adjust', ?, ?, ?, 'venue', '恶意发布扣除惩罚110根柴火')
+    `).bind(generateId(), publisherId, -deduction, newBalance, venueId).run();
+
+    // 软删除场地
+    await env.duichai_db.prepare(
+      "UPDATE venues SET status = 'deleted', updated_at = datetime('now') WHERE id = ?"
+    ).bind(venueId).run();
+
+    return jsonResponse({ success: true, message: '场地已删除，已扣除发布者110根柴火' });
+  } catch (e) {
+    return jsonResponse({ error: 'Failed to delete venue' }, 500);
+  }
+}
+
+// 馆主认证申请列表
+export async function handleAdminOwnerApplications(request: Request, env: Env): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const status = url.searchParams.get('status') || 'pending';
+    const apps: any[] = await env.duichai_db.prepare(`
+      SELECT a.*, u.nickname, u.email, u.phone as user_phone
+      FROM venue_owner_applications a
+      LEFT JOIN users u ON a.user_id = u.id
+      WHERE a.status = ?
+      ORDER BY a.created_at DESC
+      LIMIT 50
+    `).bind(status).all();
+
+    return jsonResponse({ success: true, data: apps.results });
+  } catch (e) {
+    return jsonResponse({ error: 'Failed to fetch applications' }, 500);
+  }
+}
+
+// 审核馆主认证申请
+export async function handleAdminApproveOwnerApplication(request: Request, env: Env, appId: string): Promise<Response> {
+  try {
+    const app: any = await env.duichai_db.prepare(
+      "SELECT * FROM venue_owner_applications WHERE id = ? AND status = 'pending'"
+    ).bind(appId).first();
+    if (!app) return jsonResponse({ error: 'Application not found or already processed' }, 404);
+
+    // 更新申请状态
+    await env.duichai_db.prepare(`
+      UPDATE venue_owner_applications SET status = 'approved', reviewed_at = datetime('now'), reviewed_by = ? WHERE id = ?
+    `).bind(app.user_id, appId).run();
+
+    // 升级用户角色为owner
+    await env.duichai_db.prepare(
+      "UPDATE users SET role = 'owner', updated_at = datetime('now') WHERE id = ?"
+    ).bind(app.user_id).run();
+
+    return jsonResponse({ success: true, message: '馆主认证通过' });
+  } catch (e) {
+    return jsonResponse({ error: 'Failed to approve' }, 500);
+  }
+}
+
+export async function handleAdminRejectOwnerApplication(request: Request, env: Env, appId: string): Promise<Response> {
+  try {
+    const body: any = await request.json();
+    const { reject_reason } = body;
+
+    await env.duichai_db.prepare(`
+      UPDATE venue_owner_applications SET status = 'rejected', reject_reason = ?, reviewed_at = datetime('now') WHERE id = ? AND status = 'pending'
+    `).bind(reject_reason || '资料不符合要求', appId).run();
+
+    return jsonResponse({ success: true, message: '已拒绝申请' });
+  } catch (e) {
+    return jsonResponse({ error: 'Failed to reject' }, 500);
+  }
+}
+
+// === Club Management ===
+// 俱乐部列表
+export async function handleAdminClubs(request: Request, env: Env): Promise<Response> {
+  try {
+    const clubs: any[] = await env.duichai_db.prepare(`
+      SELECT c.*, u.nickname as creator_name, u.email as creator_email
+      FROM clubs c
+      LEFT JOIN users u ON c.creator_id = u.id
+      ORDER BY c.created_at DESC
+      LIMIT 50
+    `).all();
+
+    return jsonResponse({ success: true, data: clubs.results });
+  } catch (e) {
+    return jsonResponse({ error: 'Failed to fetch clubs' }, 500);
+  }
+}
+
+// 俱乐部认证申请列表
+export async function handleAdminClubCertifications(request: Request, env: Env): Promise<Response> {
+  try {
+    const certs: any[] = await env.duichai_db.prepare(`
+      SELECT cc.*, c.name as club_name, u.nickname as applicant_name, u.email as applicant_email
+      FROM club_certifications cc
+      LEFT JOIN clubs c ON cc.club_id = c.id
+      LEFT JOIN users u ON cc.applicant_id = u.id
+      WHERE cc.status = 'pending'
+      ORDER BY cc.created_at DESC
+      LIMIT 50
+    `).all();
+
+    return jsonResponse({ success: true, data: certs.results });
+  } catch (e) {
+    return jsonResponse({ error: 'Failed to fetch certifications' }, 500);
+  }
+}
+
+// 批准俱乐部认证
+export async function handleAdminApproveClubCert(request: Request, env: Env, certId: string): Promise<Response> {
+  try {
+    const cert: any = await env.duichai_db.prepare(
+      "SELECT * FROM club_certifications WHERE id = ? AND status = 'pending'"
+    ).bind(certId).first();
+    if (!cert) return jsonResponse({ error: 'Certification not found' }, 404);
+
+    await env.duichai_db.prepare(`
+      UPDATE club_certifications SET status = 'approved', reviewed_at = datetime('now') WHERE id = ?
+    `).bind(certId).run();
+
+    // 标记俱乐部已认证
+    await env.duichai_db.prepare(
+      'UPDATE clubs SET is_certified = 1 WHERE id = ?'
+    ).bind(cert.club_id).run();
+
+    return jsonResponse({ success: true, message: '俱乐部认证通过' });
+  } catch (e) {
+    return jsonResponse({ error: 'Failed to approve' }, 500);
+  }
+}
+
+// 拒绝俱乐部认证
+export async function handleAdminRejectClubCert(request: Request, env: Env, certId: string): Promise<Response> {
+  try {
+    const body: any = await request.json();
+    await env.duichai_db.prepare(`
+      UPDATE club_certifications SET status = 'rejected', reject_reason = ?, reviewed_at = datetime('now') WHERE id = ? AND status = 'pending'
+    `).bind(body?.reject_reason || '资料不符', certId).run();
+
+    return jsonResponse({ success: true, message: '已拒绝认证' });
+  } catch (e) {
+    return jsonResponse({ error: 'Failed to reject' }, 500);
+  }
+}
+
+// 用户等级信息
+export async function handleLevelInfo(request: Request, env: Env): Promise<Response> {
+  try {
+    const auth = request.headers.get('Authorization');
+    if (!auth || !auth.startsWith('Bearer ')) return jsonResponse({ error: '未登录' }, 401);
+    const token = auth.slice(7);
+    const session: any = await env.duichai_db.prepare(
+      'SELECT user_id FROM sessions WHERE token = ?'
+    ).bind(token).first();
+    if (!session) return jsonResponse({ error: '未登录' }, 401);
+
+    const userId = session.user_id;
+    const user: any = await env.duichai_db.prepare(
+      'SELECT level, chaihuo_balance FROM users WHERE id = ?'
+    ).bind(userId).first();
+    if (!user) return jsonResponse({ error: 'User not found' }, 404);
+
+    // 获取所有等级
+    const levels: any[] = await env.duichai_db.prepare(`
+      SELECT * FROM user_levels ORDER BY level ASC
+    `).all();
+
+    const currentLevel = user.level || 1;
+    const chaihuoBalance = user.chaihuo_balance || 0;
+
+    // 找到当前等级和下一等级
+    let currentLevelData = null;
+    let nextLevelData = null;
+    let progress = 100;
+    let currentMin = 0;
+    let nextMin = 0;
+
+    for (const l of levels.results) {
+      if (l.level === currentLevel) {
+        currentLevelData = l;
+        currentMin = l.min_chaihuo;
+      }
+      if (l.level === currentLevel + 1) {
+        nextLevelData = l;
+        nextMin = l.min_chaihuo;
+      }
+    }
+
+    if (nextLevelData) {
+      const range = nextMin - currentMin;
+      const earned = chaihuoBalance - currentMin;
+      progress = range > 0 ? Math.min(Math.floor((earned / range) * 100), 99) : 100;
+    } else {
+      progress = 100;
+    }
+
+    return jsonResponse({
+      success: true,
+      data: {
+        current_level: currentLevel,
+        current_name: currentLevelData?.name || '',
+        next_level: nextLevelData?.level || null,
+        next_name: nextLevelData?.name || null,
+        current_chaihuo: chaihuoBalance,
+        current_min_chaihuo: currentMin,
+        next_min_chaihuo: nextMin || null,
+        progress_pct: progress,
+        is_max_level: !nextLevelData,
+      },
+    });
+  } catch (e) {
+    return jsonResponse({ error: 'Failed' }, 500);
+  }
+}
+
 export async function handleAdminApproveVenue(request: Request, env: Env, venueId: string): Promise<Response> {
   try {
     const venue: any = await env.duichai_db.prepare(

@@ -31,6 +31,8 @@ button{padding:10px 20px;background:#FF6B35;color:#fff;border:none;border-radius
 button:hover{background:#e85a28}
 button.secondary{background:#f0f0f0;color:#333}
 .btn-sm{padding:6px 12px;font-size:13px}
+.btn-danger{background:#F44336}
+.btn-danger:hover{background:#d32f2f}
 .apikey-input{font-family:monospace;font-size:12px;color:#666}
 .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px}
 .badge.green{background:#E8F5E9;color:#4CAF50}
@@ -45,6 +47,7 @@ button.secondary{background:#f0f0f0;color:#333}
 </style>
 </head>
 <body>
+<div id="appContent" style="display:none">
 <div class="sidebar">
   <h2>🔥 堆柴</h2>
   <nav>
@@ -52,17 +55,15 @@ button.secondary{background:#f0f0f0;color:#333}
     <a href="#" onclick="showPage('chaihuo')">🔥 柴火管理</a>
     <a href="#" onclick="showPage('users')">👤 用户管理</a>
     <a href="#" onclick="showPage('venues')">🏟 场地管理</a>
+    <a href="#" onclick="showPage('owners')">👤 馆主认证</a>
+    <a href="#" onclick="showPage('clubs')">🔄 俱乐部管理</a>
   </nav>
   <div style="position:absolute;bottom:24px;left:24px;right:24px">
-    <button onclick="showLoginModal()" style="width:100%;font-size:13px" class="secondary" id="loginBtn">🔑 管理员登录</button>
+    <button onclick="doLogout()" style="width:100%;font-size:13px" class="secondary" id="loginBtn">🔑 管理员登录</button>
     <p id="loginStatus" style="font-size:12px;color:#666;margin-top:8px;text-align:center">未登录</p>
   </div>
 </div>
 <div class="main">
-
-<!-- Login Modal -->
-<div id="loginModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center">
-</div>
 
 <!-- Dashboard -->
 <div id="page-dashboard">
@@ -130,7 +131,7 @@ button.secondary{background:#f0f0f0;color:#333}
   </div>
   <div class="section">
     <h3>管理员信息</h3>
-    <p>管理员密码: <code>duichai_admin_2026</code></p>
+    <p>管理员密码: <code>Qq141516@</code></p>
     <p style="margin-top:8px;color:#999;font-size:13px">登录方式: 点击左侧底部「管理员登录」按钮，输入邮箱和管理员密码</p>
   </div>
 </div>
@@ -151,6 +152,33 @@ button.secondary{background:#f0f0f0;color:#333}
 <div id="page-venues" style="display:none">
   <div class="header"><h1>🏟 场地管理</h1></div>
   <div class="section" id="venueSection"><p>加载中...</p></div>
+</div>
+
+<!-- Owner Certification -->
+<div id="page-owners" style="display:none">
+  <div class="header"><h1>👤 馆主认证申请</h1></div>
+  <div class="section" id="ownerSection">
+    <div style="margin-bottom:16px">
+      <button class="btn-sm" onclick="refreshOwners('pending')" style="margin-right:8px">待审核</button>
+      <button class="btn-sm secondary" onclick="refreshOwners('approved')" style="margin-right:8px">已通过</button>
+      <button class="btn-sm secondary" onclick="refreshOwners('rejected')">已拒绝</button>
+    </div>
+    <table><thead><tr><th>用户</th><th>手机</th><th>营业执照</th><th>身份证</th><th>提交时间</th><th>操作</th></tr></thead><tbody id="ownerTable"><tr><td colspan="6" style="text-align:center;color:#999">加载中...</td></tr></tbody></table>
+  </div>
+</div>
+
+<!-- Club Management -->
+<div id="page-clubs" style="display:none">
+  <div class="header"><h1>🔄 俱乐部管理</h1></div>
+  <div class="section">
+    <h3>俱乐部列表</h3>
+    <table><thead><tr><th>名称</th><th>创建者</th><th>成员数</th><th>柴火</th><th>认证</th><th>状态</th></tr></thead><tbody id="clubTable"><tr><td colspan="6" style="text-align:center;color:#999">加载中...</td></tr></tbody></table>
+  </div>
+  <div class="section">
+    <h3>俱乐部认证申请</h3>
+    <table><thead><tr><th>俱乐部</th><th>申请人</th><th>提交时间</th><th>操作</th></tr></thead><tbody id="clubCertTable"><tr><td colspan="4" style="text-align:center;color:#999">加载中...</td></tr></tbody></table>
+  </div>
+</div>
 </div>
 </div>
 
@@ -183,19 +211,34 @@ setInterval(updateDate, 60000);
 function updateLoginUI() {
   const btn = document.getElementById('loginBtn');
   const status = document.getElementById('loginStatus');
+  const appContent = document.getElementById('appContent');
   if (adminToken) {
-    btn.textContent = '👤 ' + adminNickname;
-    btn.style.background = '#4CAF50';
+    btn.textContent = '🚪 退出登录 (' + adminNickname + ')';
+    btn.style.background = '#f44336';
     btn.style.color = '#fff';
     status.textContent = '已登录';
     status.style.color = '#4CAF50';
+    appContent.style.display = 'block';
   } else {
     btn.textContent = '🔑 管理员登录';
     btn.style.background = '#f0f0f0';
     btn.style.color = '#333';
+    btn.onclick = showLoginModal;
     status.textContent = '未登录';
     status.style.color = '#999';
+    appContent.style.display = 'none';
   }
+}
+
+function doLogout() {
+  adminToken = null;
+  adminEmail = null;
+  adminNickname = null;
+  localStorage.removeItem('adminToken');
+  localStorage.removeItem('adminEmail');
+  localStorage.removeItem('adminNickname');
+  updateLoginUI();
+  showLoginModal();
 }
 
 function showLoginModal() {
@@ -217,6 +260,8 @@ function showPage(name) {
   if (name === 'dashboard') refreshDashboard();
   if (name === 'users') refreshUsers();
   if (name === 'venues') refreshVenues();
+  if (name === 'owners') refreshOwners('pending');
+  if (name === 'clubs') { refreshClubList(); refreshClubCerts(); }
 }
 
 async function api(path, method = 'GET', body = null) {
@@ -324,15 +369,18 @@ async function refreshVenues() {
   el.innerHTML = '<p style="color:#999">加载中...</p>';
   const res = await api('/api/admin/venues');
   if (res.success && res.data) {
-    let html = '<h3>场地列表</h3><table><thead><tr><th>名称</th><th>类型</th><th>柴火</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+    let html = '<h3>场地列表</h3><table><thead><tr><th>名称</th><th>类型</th><th>柴火</th><th>发布者</th><th>状态</th><th>操作</th></tr></thead><tbody>';
     html += res.data.map(v => {
       const statusBadge = v.status === 'approved' ? '<span class="badge green">已审核</span>'
         : v.status === 'pending' ? '<span class="badge orange">待审核</span>'
         : '<span class="badge red">' + v.status + '</span>';
       const approveBtn = v.status === 'pending'
-        ? '<button class="btn-sm" onclick="approveVenue(\'' + v.id + '\')">通过</button>'
+        ? '<button class="btn-sm" onclick="approveVenue(\'' + v.id + '\')" style="margin-right:4px">通过</button>'
+        : '';
+      const deleteBtn = v.status !== 'deleted'
+        ? '<button class="btn-sm btn-danger" onclick="deleteVenue(\'' + v.id + '\')">删除</button>'
         : '-';
-      return '<tr><td>' + v.name + '</td><td>' + v.type + '</td><td>' + (v.chaihuo_total || 0) + '</td><td>' + statusBadge + '</td><td>' + approveBtn + '</td></tr>';
+      return '<tr><td>' + v.name + '</td><td>' + v.type + '</td><td>' + (v.chaihuo_total || 0) + '</td><td>' + (v.publisher_name || '-') + '</td><td>' + statusBadge + '</td><td>' + approveBtn + deleteBtn + '</td></tr>';
     }).join('');
     html += '</tbody></table>';
     el.innerHTML = html;
@@ -345,6 +393,139 @@ async function approveVenue(venueId) {
   const res = await api('/api/admin/venues/' + venueId + '/approve', 'POST');
   if (res.success) {
     refreshVenues();
+  } else {
+    alert('操作失败: ' + (res.error || ''));
+  }
+}
+
+async function deleteVenue(venueId) {
+  if (!confirm('确认删除该场地？将扣除发布者110根柴火（100惩罚+10管理费）')) return;
+  const res = await api('/api/admin/venues/' + venueId + '/delete', 'POST');
+  if (res.success) {
+    alert('已删除：' + (res.message || ''));
+    refreshVenues();
+  } else {
+    alert('操作失败: ' + (res.error || ''));
+  }
+}
+
+// ===== Owner Certification =====
+let _ownerStatus = 'pending';
+async function refreshOwners(status) {
+  if (!adminToken) { showLoginModal(); return; }
+  _ownerStatus = status || 'pending';
+  // Update button styles
+  document.querySelectorAll('#ownerSection .btn-sm').forEach(b => {
+    b.className = 'btn-sm' + (b.textContent.includes({pending:'待审核',approved:'已通过',rejected:'已拒绝'}[_ownerStatus]) ? '' : ' secondary');
+  });
+  // Fix: simpler button toggle
+  document.querySelectorAll('#ownerSection .btn-sm').forEach(b => b.classList.add('secondary'));
+  const tb = document.getElementById('ownerTable');
+  tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999">加载中...</td></tr>';
+  const res = await api('/api/admin/owner-applications?status=' + _ownerStatus);
+  if (res.success && res.data) {
+    if (res.data.length === 0) {
+      tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999">暂无数据</td></tr>';
+      return;
+    }
+    tb.innerHTML = res.data.map(a => {
+      const actions = a.status === 'pending'
+        ? '<button class="btn-sm" onclick="approveOwner(\'' + a.id + '\')" style="margin-right:4px">通过</button><button class="btn-sm btn-danger" onclick="rejectOwner(\'' + a.id + '\')">拒绝</button>'
+        : a.status === 'approved' ? '<span style="color:#4CAF50">✅ 已通过</span>' : '<span style="color:#F44336">❌ ' + (a.reject_reason || '已拒绝') + '</span>';
+      return '<tr><td>' + (a.nickname || '-') + '<br><small style="color:#999">' + (a.email || '') + '</small></td>'
+        + '<td>' + (a.contact_phone || a.user_phone || '-') + '</td>'
+        + '<td><a href="' + a.business_license + '" target="_blank">查看</a></td>'
+        + '<td><a href="' + a.id_card_front + '" target="_blank">正面</a> | <a href="' + a.id_card_back + '" target="_blank">反面</a></td>'
+        + '<td>' + (a.created_at || '-') + '</td>'
+        + '<td>' + actions + '</td></tr>';
+    }).join('');
+  } else {
+    tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999">加载失败</td></tr>';
+  }
+}
+
+async function approveOwner(appId) {
+  const res = await api('/api/admin/owner-applications/' + appId + '/approve', 'POST');
+  if (res.success) {
+    alert('✅ 馆主认证通过');
+    refreshOwners(_ownerStatus);
+  } else {
+    alert('操作失败: ' + (res.error || ''));
+  }
+}
+
+async function rejectOwner(appId) {
+  const reason = prompt('请输入拒绝原因：', '资料不符合要求');
+  if (reason === null) return;
+  const res = await api('/api/admin/owner-applications/' + appId + '/reject', 'POST', { reject_reason: reason });
+  if (res.success) {
+    alert('已拒绝');
+    refreshOwners(_ownerStatus);
+  } else {
+    alert('操作失败: ' + (res.error || ''));
+  }
+}
+
+// ===== Club Management =====
+async function refreshClubList() {
+  if (!adminToken) { showLoginModal(); return; }
+  const tb = document.getElementById('clubTable');
+  tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999">加载中...</td></tr>';
+  const res = await api('/api/admin/clubs');
+  if (res.success && res.data) {
+    if (res.data.length === 0) {
+      tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999">暂无俱乐部</td></tr>';
+      return;
+    }
+    tb.innerHTML = res.data.map(c => {
+      const certBadge = c.is_certified ? '<span class="badge green">已认证</span>' : '<span class="badge orange">未认证</span>';
+      const statusBadge = c.status === 'active' ? '<span class="badge green">正常</span>' : '<span class="badge red">' + c.status + '</span>';
+      return '<tr><td>' + c.name + '</td><td>' + (c.creator_name || '-') + '</td><td>' + (c.member_count || 1) + '</td><td>' + (c.chaihuo_total || 0) + '</td><td>' + certBadge + '</td><td>' + statusBadge + '</td></tr>';
+    }).join('');
+  } else {
+    tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999">加载失败</td></tr>';
+  }
+}
+
+async function refreshClubCerts() {
+  if (!adminToken) { showLoginModal(); return; }
+  const tb = document.getElementById('clubCertTable');
+  tb.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">加载中...</td></tr>';
+  const res = await api('/api/admin/club-certifications');
+  if (res.success && res.data) {
+    if (res.data.length === 0) {
+      tb.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">暂无待审核认证</td></tr>';
+      return;
+    }
+    tb.innerHTML = res.data.map(c => {
+      return '<tr><td>' + (c.club_name || '-') + '</td>'
+        + '<td>' + (c.applicant_name || '-') + '<br><small style="color:#999">' + (c.applicant_email || '') + '</small></td>'
+        + '<td>' + (c.created_at || '-') + '</td>'
+        + '<td><button class="btn-sm" onclick="approveClubCert(\'' + c.id + '\')" style="margin-right:4px">通过</button><button class="btn-sm btn-danger" onclick="rejectClubCert(\'' + c.id + '\')">拒绝</button></td></tr>';
+    }).join('');
+  } else {
+    tb.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">加载失败</td></tr>';
+  }
+}
+
+async function approveClubCert(certId) {
+  const res = await api('/api/admin/club-certifications/' + certId + '/approve', 'POST');
+  if (res.success) {
+    alert('✅ 认证通过');
+    refreshClubCerts();
+    refreshClubList();
+  } else {
+    alert('操作失败: ' + (res.error || ''));
+  }
+}
+
+async function rejectClubCert(certId) {
+  const reason = prompt('请输入拒绝原因：', '资料不符');
+  if (reason === null) return;
+  const res = await api('/api/admin/club-certifications/' + certId + '/reject', 'POST', { reject_reason: reason });
+  if (res.success) {
+    alert('已拒绝');
+    refreshClubCerts();
   } else {
     alert('操作失败: ' + (res.error || ''));
   }

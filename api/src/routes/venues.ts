@@ -18,14 +18,14 @@ export async function handleCreateVenue(request: Request, env: Env): Promise<Res
       return jsonResponse({ error: 'name, type, latitude, longitude, publisher_id 为必填' }, 400);
     }
 
-    // 去重检测：同POI ID或50米范围内同名字段
+    // 去重检测：同POI ID或50米范围内同名字段（精确匹配）
     const duplicate = await env.duichai_db.prepare(`
       SELECT id, name FROM venues 
       WHERE status = 'approved' 
       AND ABS(latitude - ?) < 0.0005 
       AND ABS(longitude - ?) < 0.0005 
-      AND name LIKE ?
-    `).bind(latitude, longitude, `%${name}%`).first();
+      AND name = ?
+    `).bind(latitude, longitude, name).first();
 
     if (duplicate) {
       return jsonResponse({
@@ -37,7 +37,7 @@ export async function handleCreateVenue(request: Request, env: Env): Promise<Res
     const id = generateId();
     await env.duichai_db.prepare(`
       INSERT INTO venues (id, name, type, latitude, longitude, description, address, photos, videos, publisher_id, is_free, price_info, open_hours, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')
     `).bind(
       id, name, type, latitude, longitude,
       description || null, address || null,
@@ -347,6 +347,49 @@ export async function handleGetVenueMatches(request: Request, env: Env, venueId:
     }));
 
     return jsonResponse({ success: true, data: parsed });
+  } catch (e) {
+    return jsonResponse({ error: '服务器错误' }, 500);
+  }
+}
+
+// 馆主认证申请
+async function getOwnerApplyUserId(request: Request, env: Env): Promise<string | null> {
+  const auth = request.headers.get('Authorization');
+  if (!auth || !auth.startsWith('Bearer ')) return null;
+  const token = auth.slice(7);
+  const session: any = await env.duichai_db.prepare(
+    'SELECT user_id FROM sessions WHERE token = ?'
+  ).bind(token).first();
+  return session?.user_id || null;
+}
+
+export async function handleOwnerApply(request: Request, env: Env): Promise<Response> {
+  try {
+    const userId = await getOwnerApplyUserId(request, env);
+    if (!userId) return jsonResponse({ error: '未登录' }, 401);
+
+    const body: any = await request.json();
+    const { business_license, id_card_front, id_card_back, contact_phone, contact_wechat } = body;
+
+    if (!business_license || !id_card_front || !id_card_back || !contact_phone) {
+      return jsonResponse({ error: 'business_license, id_card_front, id_card_back, contact_phone 为必填' }, 400);
+    }
+
+    // 检查是否有待审核的申请
+    const existing = await env.duichai_db.prepare(
+      "SELECT id FROM venue_owner_applications WHERE user_id = ? AND status = 'pending'"
+    ).bind(userId).first();
+    if (existing) {
+      return jsonResponse({ error: '已有待审核的申请，请耐心等待' }, 409);
+    }
+
+    const id = generateId();
+    await env.duichai_db.prepare(`
+      INSERT INTO venue_owner_applications (id, user_id, business_license, id_card_front, id_card_back, contact_phone, contact_wechat, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+    `).bind(id, userId, business_license, id_card_front, id_card_back, contact_phone, contact_wechat || null).run();
+
+    return jsonResponse({ success: true, message: '馆主认证申请已提交，等待审核' }, 201);
   } catch (e) {
     return jsonResponse({ error: '服务器错误' }, 500);
   }

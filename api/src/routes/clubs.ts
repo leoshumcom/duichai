@@ -38,14 +38,26 @@ export async function handleCreateClub(request: Request, env: Env): Promise<Resp
 // Club list
 export async function handleListClubs(request: Request, env: Env): Promise<Response> {
   try {
-    const clubs = await env.duichai_db.prepare(`
+    const url = new URL(request.url);
+    const q = url.searchParams.get('q');
+
+    let query = `
       SELECT c.*, u.nickname as creator_name
       FROM clubs c
       LEFT JOIN users u ON c.creator_id = u.id
       WHERE c.status = 'active'
-      ORDER BY c.chaihuo_total DESC
-      LIMIT 50
-    `).all();
+    `;
+    const params: any[] = [];
+
+    if (q && q.trim()) {
+      query += ' AND (c.name LIKE ? OR c.description LIKE ?)';
+      const likeQ = `%${q.trim()}%`;
+      params.push(likeQ, likeQ);
+    }
+
+    query += ' ORDER BY c.chaihuo_total DESC LIMIT 50';
+
+    const clubs = await env.duichai_db.prepare(query).bind(...params).all();
 
     const parsed = clubs.results.map((c: any) => ({
       ...c,

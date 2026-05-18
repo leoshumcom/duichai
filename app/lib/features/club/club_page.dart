@@ -16,6 +16,8 @@ class _ClubsPageState extends State<ClubsPage> {
   final _api = ApiClient();
   List<Map<String, dynamic>> _clubs = [];
   bool _loading = true;
+  String _searchQuery = '';
+  final _searchCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -23,9 +25,17 @@ class _ClubsPageState extends State<ClubsPage> {
     _loadClubs();
   }
 
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadClubs() async {
     try {
-      final res = await _api.get('/api/clubs');
+      final params = <String, String>{};
+      if (_searchQuery.isNotEmpty) params['q'] = _searchQuery;
+      final res = await _api.get('/api/clubs', params: params);
       if (res['success'] == true && res['data'] != null) {
         setState(() {
           _clubs = (res['data'] as List).cast<Map<String, dynamic>>();
@@ -43,32 +53,63 @@ class _ClubsPageState extends State<ClubsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('俱乐部')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _clubs.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.groups, size: 64, color: Colors.grey.shade300),
-                      const SizedBox(height: 16),
-                      Text('还没有俱乐部', style: TextStyle(color: Colors.grey.shade500)),
-                      const SizedBox(height: 8),
-                      Text('创建一个俱乐部，约上球友一起运动', style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: () => Navigator.pushNamed(context, '/club/create'),
-                        icon: const Icon(Icons.add),
-                        label: const Text('创建俱乐部'),
+      body: Column(
+        children: [
+          // 搜索栏
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: (v) {
+                setState(() => _searchQuery = v);
+                _loadClubs();
+              },
+              decoration: InputDecoration(
+                hintText: '搜索俱乐部...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 20),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _searchQuery = '');
+                          _loadClubs();
+                        },
+                      )
+                    : null,
+              ),
+            ),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _clubs.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.groups, size: 64, color: Colors.grey.shade300),
+                            const SizedBox(height: 16),
+                            Text('还没有俱乐部', style: TextStyle(color: Colors.grey.shade500)),
+                            const SizedBox(height: 8),
+                            Text('创建一个俱乐部，约上球友一起运动', style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
+                            const SizedBox(height: 24),
+                            ElevatedButton.icon(
+                              onPressed: () => Navigator.pushNamed(context, '/club/create'),
+                              icon: const Icon(Icons.add),
+                              label: const Text('创建俱乐部'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _clubs.length,
+                        itemBuilder: (ctx, i) => _buildClubCard(_clubs[i]),
                       ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _clubs.length,
-                  itemBuilder: (ctx, i) => _buildClubCard(_clubs[i]),
-                ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.pushNamed(context, '/club/create'),
         backgroundColor: AppTheme.primary,

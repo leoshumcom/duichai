@@ -7,11 +7,11 @@ import { Router } from './router';
 import { jsonResponse, corsHeaders } from './utils';
 import { initDB } from './db/init';
 import { handleRegister, handleLogin, handleLoginByUid, handleGetUser, handleGetMe, handleGetMyUid, handleSetUserUid } from './routes/auth';
-import { handleCreateVenue, handleGetVenue, handleSearchVenues, handleTipVenue, handleSupplementVenue, handleGetVenueReviews, handleCreateMatch, handleGetVenueMatches, handleJoinMatch } from './routes/venues';
+import { handleCreateVenue, handleGetVenue, handleSearchVenues, handleTipVenue, handleSupplementVenue, handleGetVenueReviews, handleCreateMatch, handleGetVenueMatches, handleJoinMatch, handleOwnerApply } from './routes/venues';
 import { handleUpload, handleBatchUpload, handleDeleteFile } from './routes/upload';
 import { handleCreateClub, handleListClubs, handleGetClub, handleJoinClub, handleJoinRequest, handleListJoinRequests, handleApproveJoinRequest, handleRejectJoinRequest } from './routes/clubs';
 import { handleSendClubMessage, handleGetClubMessages } from './routes/club_messages';
-import { handleDashboardStats, handleUserTrend, handleRankings, handleAdminLogin, handleGrantChaihuo, handleAdminUsers, handleAdminVenues, handleAdminApproveVenue } from './routes/admin';
+import { handleDashboardStats, handleUserTrend, handleRankings, handleAdminLogin, handleGrantChaihuo, handleAdminUsers, handleAdminVenues, handleAdminApproveVenue, handleAdminDeleteVenue, handleAdminOwnerApplications, handleAdminApproveOwnerApplication, handleAdminRejectOwnerApplication, handleAdminClubs, handleAdminClubCertifications, handleAdminApproveClubCert, handleAdminRejectClubCert, handleLevelInfo } from './routes/admin';
 import { handleMyTips, handleMyBadges, handleMyClubs, handleMyVenues, handleMyInvites, handleNotifications, handleMarkRead, handleUpdateAvatar, handleUpdateProfile } from './routes/profile';
 
 interface Env {
@@ -106,6 +106,22 @@ export default {
     router.add('GET', '/api/admin/users', async (req) => handleAdminUsers(req, env));
     router.add('GET', '/api/admin/venues', async (req) => handleAdminVenues(req, env));
     router.add('POST', '/api/admin/venues/:venueId/approve', async (req, params) => handleAdminApproveVenue(req, env, params.venueId));
+    router.add('POST', '/api/admin/venues/:id/delete', async (req, params) => handleAdminDeleteVenue(req, env, params.id));
+
+    // ===== Owner Applications =====
+    router.add('POST', '/api/venues/owner-apply', async (req) => handleOwnerApply(req, env));
+    router.add('GET', '/api/admin/owner-applications', async (req) => handleAdminOwnerApplications(req, env));
+    router.add('POST', '/api/admin/owner-applications/:id/approve', async (req, params) => handleAdminApproveOwnerApplication(req, env, params.id));
+    router.add('POST', '/api/admin/owner-applications/:id/reject', async (req, params) => handleAdminRejectOwnerApplication(req, env, params.id));
+
+    // ===== Admin Clubs =====
+    router.add('GET', '/api/admin/clubs', async (req) => handleAdminClubs(req, env));
+    router.add('GET', '/api/admin/club-certifications', async (req) => handleAdminClubCertifications(req, env));
+    router.add('POST', '/api/admin/club-certifications/:id/approve', async (req, params) => handleAdminApproveClubCert(req, env, params.id));
+    router.add('POST', '/api/admin/club-certifications/:id/reject', async (req, params) => handleAdminRejectClubCert(req, env, params.id));
+
+    // ===== Level Info =====
+    router.add('GET', '/api/users/me/level-info', async (req) => handleLevelInfo(req, env));
 
     // 404
     router.add('ALL', '/*', () => {

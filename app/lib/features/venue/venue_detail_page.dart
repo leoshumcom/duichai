@@ -405,8 +405,113 @@ class _VenueDetailPageState extends State<VenueDetailPage> with SingleTickerProv
               label: Text('添柴 $_tipAmount 根 🔥'),
             ),
           ),
+          // 申请成为馆主按钮（仅非馆主用户可见）
+          const Divider(),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _showOwnerApplyDialog(context),
+              icon: const Icon(Icons.verified_user_outlined),
+              label: const Text('申请成为馆主'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.primary,
+                side: const BorderSide(color: AppTheme.primary),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
           const SizedBox(height: 40),
         ],
+      ),
+    );
+  }
+
+  void _showOwnerApplyDialog(BuildContext context) {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isLoggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先登录')),
+      );
+      return;
+    }
+
+    final licCtrl = TextEditingController();
+    final idFrontCtrl = TextEditingController();
+    final idBackCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    final wechatCtrl = TextEditingController();
+    bool submitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('申请成为馆主'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('请上传以下资料（支持图片URL或OSS链接）', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                const SizedBox(height: 16),
+                TextField(controller: licCtrl, decoration: const InputDecoration(labelText: '营业执照图片URL', hintText: '请上传营业执照图片后粘贴链接')),
+                const SizedBox(height: 12),
+                TextField(controller: idFrontCtrl, decoration: const InputDecoration(labelText: '身份证正面URL', hintText: '请上传身份证正面图片后粘贴链接')),
+                const SizedBox(height: 12),
+                TextField(controller: idBackCtrl, decoration: const InputDecoration(labelText: '身份证反面URL', hintText: '请上传身份证反面图片后粘贴链接')),
+                const SizedBox(height: 12),
+                TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: '联系电话', hintText: '手机号'), keyboardType: TextInputType.phone),
+                const SizedBox(height: 12),
+                TextField(controller: wechatCtrl, decoration: const InputDecoration(labelText: '微信（选填）', hintText: '微信号')),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            ElevatedButton(
+              onPressed: submitting ? null : () async {
+                if (licCtrl.text.isEmpty || idFrontCtrl.text.isEmpty || idBackCtrl.text.isEmpty || phoneCtrl.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('请填写必填信息'), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+                setDialogState(() => submitting = true);
+                try {
+                  final api = ApiClient();
+                  final res = await api.post('/api/venues/owner-apply', data: {
+                    'business_license': licCtrl.text.trim(),
+                    'id_card_front': idFrontCtrl.text.trim(),
+                    'id_card_back': idBackCtrl.text.trim(),
+                    'contact_phone': phoneCtrl.text.trim(),
+                    'contact_wechat': wechatCtrl.text.isNotEmpty ? wechatCtrl.text.trim() : null,
+                  });
+                  if (res['success'] == true) {
+                    Navigator.pop(ctx);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('申请已提交，等待管理员审核')),
+                      );
+                    }
+                  } else {
+                    setDialogState(() => submitting = false);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(res['error'] ?? '提交失败'), backgroundColor: Colors.red),
+                    );
+                  }
+                } catch (_) {
+                  setDialogState(() => submitting = false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('网络错误'), backgroundColor: Colors.red),
+                  );
+                }
+              },
+              child: submitting
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('提交申请'),
+            ),
+          ],
+        ),
       ),
     );
   }
