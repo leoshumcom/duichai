@@ -1,17 +1,14 @@
 // 堆柴 Admin - Cloudflare Worker
-// Serves the admin panel HTML (full dashboard) and proxies API requests
 export default {
   async fetch(request) {
     const url = new URL(request.url);
     if (url.pathname === '/' || url.pathname === '/index.html') {
       return new Response(getHtml(), {
-        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, no-store, must-revalidate' },
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, no-store' },
       });
     }
     if (request.method === 'OPTIONS') {
-      return new Response(null, {
-        headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Max-Age': '86400' },
-      });
+      return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Max-Age': '86400' } });
     }
     if (url.pathname.startsWith('/api/')) {
       const apiUrl = 'https://api.duichai.com' + url.pathname + url.search;
@@ -48,12 +45,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 .kpi-card .label{font-size:13px;color:#999;margin-bottom:8px}
 .kpi-card .value{font-size:32px;font-weight:700;color:#1A1A1A}
 .kpi-card.primary .value{color:#FF6B35}
-.kpi-card .change{font-size:12px;color:#4CAF50;margin-top:4px}
 .section{background:#fff;border-radius:12px;padding:24px;margin-bottom:24px;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
-.section h3{font-size:16px;margin-bottom:16px;color:#333}
-table{width:100%;border-collapse:collapse;font-size:14px}
-th{text-align:left;padding:12px 8px;color:#999;font-weight:500;border-bottom:2px solid #f0f0f0}
-td{padding:12px 8px;border-bottom:1px solid #f5f5f5}
+.section h3{font-size:16px;margin-bottom:16px}
 input,select{padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;width:100%;max-width:300px}
 button{padding:10px 20px;background:#FF6B35;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px}
 button:hover{background:#e85a28}
@@ -66,9 +59,6 @@ button.secondary{background:#f0f0f0;color:#333;cursor:pointer}
 .result{font-size:13px;margin-top:8px;padding:8px;border-radius:4px}
 .result.success{background:#E8F5E9;color:#4CAF50}
 .result.error{background:#FFEBEE;color:#F44336}
-.logout-btn{position:absolute;bottom:24px;left:24px;right:24px}
-.logout-btn button{width:100%;font-size:13px}
-@media(max-width:768px){.sidebar{width:0;overflow:hidden}.main{margin-left:0}}
 </style>
 </head>
 <body>
@@ -80,40 +70,37 @@ button.secondary{background:#f0f0f0;color:#333;cursor:pointer}
     <a href="#" onclick="showPage('users')">👤 用户管理</a>
     <a href="#" onclick="showPage('venues')">🏟 场地管理</a>
   </nav>
-  <div class="logout-btn">
-    <button onclick="showLogin()" class="secondary" id="loginBtn">🔑 管理员登录</button>
+  <div style="position:absolute;bottom:24px;left:24px;right:24px">
+    <button onclick="showLogin()" class="secondary" id="loginBtn" style="width:100%">🔑 管理员登录</button>
     <p id="loginStatus" style="font-size:12px;color:#666;margin-top:8px;text-align:center">未登录</p>
   </div>
 </div>
 <div class="main">
 
 <div id="page-dashboard">
-  <div class="header">
-    <h1>📊 数据大盘</h1>
-    <span class="date" id="dateDisplay"></span>
-  </div>
+  <div class="header"><h1>📊 数据大盘</h1><span class="date" id="dateDisplay"></span></div>
   <div id="loginHint" style="text-align:center;padding:60px 20px;color:#999">
-    <p style="font-size:18px;margin-bottom:12px">请先登录管理员账号</p>
-    <button onclick="showLogin()">立即登录</button>
+    <p>请先登录管理员账号</p>
+    <button onclick="showLogin()" style="margin-top:16px">立即登录</button>
   </div>
   <div id="dashboardContent" style="display:none">
-  <div class="kpi-grid">
-    <div class="kpi-card primary"><div class="label">累计用户</div><div class="value" id="totalUsers">-</div></div>
-    <div class="kpi-card"><div class="label">日活跃</div><div class="value" id="dau">-</div></div>
-    <div class="kpi-card"><div class="label">场地</div><div class="value" id="totalVenues">-</div></div>
-    <div class="kpi-card"><div class="label">俱乐部</div><div class="value" id="totalClubs">-</div></div>
-    <div class="kpi-card"><div class="label">柴火总量</div><div class="value" id="totalChaihuo">-</div></div>
-  </div>
-  <div class="section">
-    <h3>📋 待审核</h3>
-    <table><thead><tr><th>类型</th><th>待处理</th></tr></thead>
-    <tbody>
-      <tr><td>🏟 新场地</td><td><span class="badge orange" id="pendingVenues">-</span></td></tr>
-      <tr><td>👤 馆主认证</td><td><span class="badge orange" id="pendingOwners">-</span></td></tr>
-      <tr><td>🔄 俱乐部认证</td><td><span class="badge orange" id="pendingClubs">-</span></td></tr>
-      <tr><td>🚨 举报</td><td><span class="badge red" id="pendingReports">-</span></td></tr>
-    </tbody></table>
-  </div>
+    <div class="kpi-grid">
+      <div class="kpi-card primary"><div class="label">累计用户</div><div class="value" id="totalUsers">-</div></div>
+      <div class="kpi-card"><div class="label">日活跃</div><div class="value" id="dau">-</div></div>
+      <div class="kpi-card"><div class="label">场地</div><div class="value" id="totalVenues">-</div></div>
+      <div class="kpi-card"><div class="label">俱乐部</div><div class="value" id="totalClubs">-</div></div>
+      <div class="kpi-card"><div class="label">柴火总量</div><div class="value" id="totalChaihuo">-</div></div>
+    </div>
+    <div class="section">
+      <h3>📋 待审核</h3>
+      <table><thead><tr><th>类型</th><th>待处理</th></tr></thead>
+      <tbody>
+        <tr><td>🏟 新场地</td><td><span class="badge orange" id="pendingVenues">-</span></td></tr>
+        <tr><td>👤 馆主认证</td><td><span class="badge orange" id="pendingOwners">-</span></td></tr>
+        <tr><td>🔄 俱乐部认证</td><td><span class="badge orange" id="pendingClubs">-</span></td></tr>
+        <tr><td>🚨 举报</td><td><span class="badge red" id="pendingReports">-</span></td></tr>
+      </tbody></table>
+    </div>
   </div>
 </div>
 
@@ -122,10 +109,8 @@ button.secondary{background:#f0f0f0;color:#333;cursor:pointer}
   <div class="section">
     <h3>发放柴火</h3>
     <div style="display:flex;flex-direction:column;gap:12px;max-width:400px">
-      <div><label style="font-size:13px;color:#666;display:block;margin-bottom:4px">用户邮箱/UID</label>
-        <input type="text" id="grantEmail" placeholder="用户邮箱或UID" value="leoshum.com@gmail.com"></div>
-      <div><label style="font-size:13px;color:#666;display:block;margin-bottom:4px">柴火数量</label>
-        <input type="number" id="grantAmount" placeholder="柴火数量" value="100"></div>
+      <input type="text" id="grantEmail" placeholder="用户邮箱或UID" value="leoshum.com@gmail.com">
+      <input type="number" id="grantAmount" placeholder="柴火数量" value="100">
       <button onclick="grantChaihuo()">发放柴火</button>
       <div id="grantResult"></div>
     </div>
@@ -148,12 +133,13 @@ button.secondary{background:#f0f0f0;color:#333;cursor:pointer}
 
 </div>
 
+<!-- Login Modal -->
 <div id="loginModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:12px;padding:32px;width:360px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
-    <h3 style="margin-bottom:20px;font-size:20px;color:#1A1A1A">🔑 管理员登录</h3>
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <input type="email" id="loginEmail" placeholder="管理员邮箱" value="leoshum.com@gmail.com" style="max-width:100%;padding:10px 12px">
-      <input type="password" id="loginPassword" placeholder="管理员密码" style="max-width:100%;padding:10px 12px">
+    <h3>🔑 管理员登录</h3>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">
+      <input type="email" id="loginEmail" placeholder="管理员邮箱" value="leoshum.com@gmail.com" style="padding:10px 12px">
+      <input type="password" id="loginPassword" placeholder="管理员密码" style="padding:10px 12px">
       <button onclick="doLogin()" style="width:100%;padding:12px">登录</button>
       <div id="loginResult"></div>
       <button onclick="hideLogin()" style="background:transparent;color:#999;width:100%;padding:8px;border:none;cursor:pointer">取消</button>
@@ -162,75 +148,75 @@ button.secondary{background:#f0f0f0;color:#333;cursor:pointer}
 </div>
 
 <script>
+(function(){
 var API = location.origin;
 var adminToken = localStorage.getItem('adminToken');
 var adminEmail = localStorage.getItem('adminEmail');
 
 function updateDate() {
-  document.getElementById('dateDisplay').textContent = new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit' });
+  document.getElementById('dateDisplay').innerHTML = new Date().toLocaleDateString('zh-CN', {year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
 }
 updateDate();
 setInterval(updateDate, 60000);
 
-function showLogin() {
+window.showLogin = function() {
   document.getElementById('loginModal').style.display = 'flex';
   document.getElementById('loginEmail').value = adminEmail || 'leoshum.com@gmail.com';
   document.getElementById('loginPassword').value = '';
   document.getElementById('loginResult').innerHTML = '';
-}
-function hideLogin() {
+};
+
+window.hideLogin = function() {
   document.getElementById('loginModal').style.display = 'none';
-}
-function updateUI() {
+};
+
+function updateLoginUI() {
   var btn = document.getElementById('loginBtn');
   var st = document.getElementById('loginStatus');
   if (adminToken) {
-    btn.textContent = '\u{1F464} ' + (adminEmail || '\u{7BA1}\u{7406}\u{5458}');
+    btn.innerHTML = '👤 ' + (adminEmail || '管理员');
     btn.style.background = '#4CAF50';
     btn.style.color = '#fff';
-    st.innerHTML = '\u{5DF2}\u{767B}\u{5F55}';
+    st.innerHTML = '已登录';
     st.style.color = '#4CAF50';
   } else {
-    btn.innerHTML = '\u{1F511} \u{7BA1}\u{7406}\u{5458}\u{767B}\u{5F55}';
+    btn.innerHTML = '🔑 管理员登录';
     btn.style.background = '';
     btn.style.color = '';
-    st.innerHTML = '\u{672A}\u{767B}\u{5F55}';
+    st.innerHTML = '未登录';
     st.style.color = '#999';
   }
 }
 
 function apiCall(path, method, body) {
-  var opts = { method: method || 'GET', headers: { 'Content-Type': 'application/json' }};
+  var opts = {method: method || 'GET', headers: {'Content-Type': 'application/json'}};
   if (adminToken) opts.headers['Authorization'] = 'Bearer ' + adminToken;
   if (body) opts.body = JSON.stringify(body);
-  return fetch(API + path, opts).then(function(r) { return r.json(); });
+  return fetch(API + path, opts).then(function(r){ return r.json(); });
 }
 
-function doLogin() {
+window.doLogin = function() {
   var email = document.getElementById('loginEmail').value.trim();
   var password = document.getElementById('loginPassword').value;
   var el = document.getElementById('loginResult');
-  if (!email || !password) { el.innerHTML = '<div class="result error">\u{8BF7}\u{586B}\u{5199}\u{90AE}\u{7BB1}\u{548C}\u{5BC6}\u{7801}</div>'; return; }
-  el.innerHTML = '<div style="color:#999;font-size:13px">\u{6B63}\u{5728}\u{767B}\u{5F55}...</div>';
-  apiCall('/api/admin/login', 'POST', { email: email, password: password }).then(function(data) {
+  if (!email || !password) { el.innerHTML = '<div class="result error">请填写邮箱和密码</div>'; return; }
+  el.innerHTML = '<div style="color:#999;font-size:13px">登录中...</div>';
+  apiCall('/api/admin/login', 'POST', {email: email, password: password}).then(function(data) {
     if (data.success) {
       adminToken = data.data.token;
       adminEmail = email;
       localStorage.setItem('adminToken', adminToken);
       localStorage.setItem('adminEmail', adminEmail);
-      el.innerHTML = '<div class="result success">\u{2705} \u{767B}\u{5F55}\u{6210}\u{529F}\u{FF01}</div>';
-      updateUI();
-      setTimeout(hideLogin, 800);
-      showDashboard();
+      el.innerHTML = '<div class="result success">✅ 登录成功！</div>';
+      updateLoginUI();
+      setTimeout(function(){ hideLogin(); showDashboard(); }, 600);
     } else {
-      el.innerHTML = '<div class="result error">\u{274C} ' + (data.error || '\u{767B}\u{5F55}\u{5931}\u{8D25}') + '</div>';
+      el.innerHTML = '<div class="result error">❌ ' + (data.error || '登录失败') + '</div>';
     }
-  }).catch(function() {
-    el.innerHTML = '<div class="result error">\u{7F51}\u{7EDC}\u{9519}\u{8BEF}</div>';
-  });
-}
+  }).catch(function(){ el.innerHTML = '<div class="result error">网络错误</div>'; });
+};
 
-function showPage(name) {
+window.showPage = function(name) {
   var pages = document.querySelectorAll('.main > div[id^="page-"]');
   for (var i = 0; i < pages.length; i++) pages[i].style.display = 'none';
   document.getElementById('page-' + name).style.display = 'block';
@@ -242,7 +228,7 @@ function showPage(name) {
   if (name === 'dashboard') showDashboard();
   if (name === 'users') loadUsers();
   if (name === 'venues') loadVenues();
-}
+};
 
 function showDashboard() {
   document.getElementById('loginHint').style.display = adminToken ? 'none' : 'block';
@@ -250,54 +236,47 @@ function showDashboard() {
   if (!adminToken) return;
   apiCall('/api/admin/stats').then(function(data) {
     if (data.success && data.data) {
-      document.getElementById('totalUsers').textContent = data.data.total_users;
-      document.getElementById('dau').textContent = data.data.dau;
-      document.getElementById('totalVenues').textContent = data.data.total_venues;
-      document.getElementById('totalClubs').textContent = data.data.total_clubs;
-      document.getElementById('totalChaihuo').textContent = data.data.total_chaihuo;
+      document.getElementById('totalUsers').innerHTML = data.data.total_users;
+      document.getElementById('dau').innerHTML = data.data.dau;
+      document.getElementById('totalVenues').innerHTML = data.data.total_venues;
+      document.getElementById('totalClubs').innerHTML = data.data.total_clubs;
+      document.getElementById('totalChaihuo').innerHTML = data.data.total_chaihuo;
       var p = data.data.pending || {};
-      document.getElementById('pendingVenues').textContent = p.venues || 0;
-      document.getElementById('pendingOwners').textContent = p.owners || 0;
-      document.getElementById('pendingClubs').textContent = p.clubs || 0;
-      document.getElementById('pendingReports').textContent = p.reports || 0;
+      document.getElementById('pendingVenues').innerHTML = p.venues || 0;
+      document.getElementById('pendingOwners').innerHTML = p.owners || 0;
+      document.getElementById('pendingClubs').innerHTML = p.clubs || 0;
+      document.getElementById('pendingReports').innerHTML = p.reports || 0;
     }
   });
 }
 
-function grantChaihuo() {
+window.grantChaihuo = function() {
   var email = document.getElementById('grantEmail').value.trim();
   var amount = parseInt(document.getElementById('grantAmount').value);
   var el = document.getElementById('grantResult');
-  if (!email || !amount || amount < 1) { el.innerHTML = '<div class="result error">\u{8BF7}\u{586B}\u{5199}\u{6709}\u{6548}\u{7684}\u{90AE}\u{7BB1}\u{548C}\u{6570}\u{91CF}</div>'; return; }
+  if (!email || !amount || amount < 1) { el.innerHTML = '<div class="result error">请填写邮箱和有效的数量</div>'; return; }
   if (!adminToken) { showLogin(); return; }
-  el.innerHTML = '<div style="color:#999;font-size:13px">\u{5904}\u{7406}\u{4E2D}...</div>';
-  apiCall('/api/admin/grant-chaihuo', 'POST', { email: email, amount: amount, reason: '\u{7BA1}\u{7406}\u{5458}\u{53D1}\u{653E}' }).then(function(data) {
-    if (data.success) {
-      el.innerHTML = '<div class="result success">\u{2705} ' + data.data.email + ': ' + data.data.previous_balance + ' \u{2192} ' + data.data.new_balance + ' (+' + data.data.amount + ')</div>';
-    } else {
-      el.innerHTML = '<div class="result error">\u{274C} ' + (data.error || '\u{53D1}\u{653E}\u{5931}\u{8D25}') + '</div>';
-    }
-  }).catch(function() {
-    el.innerHTML = '<div class="result error">\u{7F51}\u{7EDC}\u{9519}\u{8BEF}</div>';
-  });
-}
+  el.innerHTML = '<div style="color:#999;font-size:13px">处理中...</div>';
+  apiCall('/api/admin/grant-chaihuo', 'POST', {email: email, amount: amount, reason: '管理员发放'}).then(function(data) {
+    if (data.success) { el.innerHTML = '<div class="result success">✅ ' + data.data.email + ': ' + data.data.previous_balance + ' → ' + data.data.new_balance + ' (+' + data.data.amount + ')</div>'; }
+    else { el.innerHTML = '<div class="result error">❌ ' + (data.error || '发放失败') + '</div>'; }
+  }).catch(function(){ el.innerHTML = '<div class="result error">网络错误</div>'; });
+};
 
 function loadUsers() {
   if (!adminToken) return;
   apiCall('/api/admin/users').then(function(data) {
     var tb = document.getElementById('userTable');
     if (data.success && data.data && data.data.length > 0) {
-      var html = '';
+      var h = '';
       for (var i = 0; i < data.data.length; i++) {
         var u = data.data[i];
-        var roleBadge = 'badge';
-        if (u.role === 'admin' || u.role === 'super_admin') roleBadge += ' green';
-        else if (u.role === 'owner') roleBadge += ' orange';
-        html += '<tr><td><code>' + (u.uid || '-') + '</code></td><td>' + (u.email || '') + '</td><td>' + (u.nickname || '') + '</td><td>' + (u.chaihuo_balance || 0) + ' \u{1F525}</td><td><span class="' + roleBadge + '">' + (u.role || 'user') + '</span></td></tr>';
+        var cls = 'badge';
+        if (u.role === 'admin' || u.role === 'super_admin') cls += ' green';
+        else if (u.role === 'owner') cls += ' orange';
+        h += '<tr><td>' + (u.uid || '-') + '</td><td>' + (u.email || '') + '</td><td>' + (u.nickname || '') + '</td><td>' + (u.chaihuo_balance || 0) + '</td><td><span class="' + cls + '">' + (u.role || 'user') + '</span></td></tr>';
       }
-      tb.innerHTML = html;
-    } else {
-      tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999">\u{6682}\u{65E0}\u{7528}\u{6237}\u{6570}\u{636E}</td></tr>';
+      tb.innerHTML = h;
     }
   });
 }
@@ -307,32 +286,27 @@ function loadVenues() {
   apiCall('/api/admin/venues').then(function(data) {
     var el = document.getElementById('venueSection');
     if (data.success && data.data && data.data.length > 0) {
-      var html = '<table><thead><tr><th>\u{573A}\u{5730}\u{540D}</th><th>\u{7C7B}\u{578B}</th><th>\u{5730}\u{5740}</th><th>\u{1F525}</th><th>\u{72B6}\u{6001}</th><th>\u{64CD}\u{4F5C}</th></tr></thead><tbody>';
+      var h = '<table><thead><tr><th>名称</th><th>类型</th><th>🔥</th><th>状态</th><th>操作</th></tr></thead><tbody>';
       for (var i = 0; i < data.data.length; i++) {
         var v = data.data[i];
-        var statusBadge = v.status === 'approved' ? 'badge green' : (v.status === 'pending' ? 'badge orange' : 'badge red');
-        var statusText = v.status === 'approved' ? '\u{5DF2}\u{901A}\u{8FC7}' : (v.status === 'pending' ? '\u{5F85}\u{5BA1}\u{6838}' : v.status);
-        html += '<tr><td>' + (v.name || '') + '</td><td>' + (v.type || '-') + '</td><td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis">' + (v.address || '-') + '</td><td>' + (v.chaihuo_total || 0) + '</td><td><span class="' + statusBadge + '">' + statusText + '</span></td><td>';
-        if (v.status === 'pending') html += '<button class="btn-sm" onclick="approveVenue('' + v.id + '')">\u{901A}\u{8FC7}</button>';
-        html += '</td></tr>';
+        var cls = v.status === 'approved' ? 'badge green' : (v.status === 'pending' ? 'badge orange' : 'badge red');
+        var txt = v.status === 'approved' ? '已通过' : (v.status === 'pending' ? '待审核' : v.status);
+        h += '<tr><td>' + (v.name || '') + '</td><td>' + (v.type || '-') + '</td><td>' + (v.chaihuo_total || 0) + '</td><td><span class="' + cls + '">' + txt + '</span></td><td>' + (v.status === 'pending' ? '<button class="btn-sm" onclick="approveVenue('' + v.id + '')">通过</button>' : '') + '</td></tr>';
       }
-      html += '</tbody></table>';
-      el.innerHTML = html;
-    } else {
-      el.innerHTML = '<p style="color:#999">\u{6682}\u{65E0}\u{573A}\u{5730}\u{6570}\u{636E}</p>';
+      h += '</tbody></table>';
+      el.innerHTML = h;
     }
   });
 }
 
-function approveVenue(venueId) {
+window.approveVenue = function(id) {
   if (!adminToken) return;
-  apiCall('/api/admin/venues/' + venueId + '/approve', 'POST').then(function(data) {
-    if (data.success) loadVenues();
-  });
-}
+  apiCall('/api/admin/venues/' + id + '/approve', 'POST').then(function(d) { if (d.success) loadVenues(); });
+};
 
-updateUI();
-if (adminToken) { showDashboard(); }
+updateLoginUI();
+if (adminToken) showDashboard();
+})();
 </script>
 </body>
 </html>`;
