@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:io';
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/network/api_client.dart';
@@ -49,6 +50,31 @@ class _PublishVenuePageState extends State<PublishVenuePage> {
     final picker = ImagePicker();
     final file = await picker.pickVideo(source: ImageSource.gallery);
     if (file != null) setState(() => _videos.add(file));
+  }
+
+  /// 反向地理编码：用坐标获取地址
+  Future<void> _reverseGeocode(double lat, double lng) async {
+    try {
+      final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 5)));
+      final res = await dio.get(
+        'https://nominatim.openstreetmap.org/reverse',
+        queryParameters: {
+          'lat': lat.toStringAsFixed(6),
+          'lon': lng.toStringAsFixed(6),
+          'format': 'json',
+          'accept-language': 'zh',
+        },
+        options: Options(headers: {'User-Agent': 'DuichaiApp/1.0'}),
+      );
+      if (res.data != null && res.data['display_name'] != null) {
+        final addr = res.data['display_name'] as String;
+        if (mounted) {
+          setState(() {
+            _address = addr.length > 60 ? '${addr.substring(0, 60)}...' : addr;
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _submit() async {

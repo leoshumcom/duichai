@@ -125,7 +125,6 @@ class _MapPageState extends State<MapPage> {
               TileLayer(
                 urlTemplate: _activeTileUrl,
                 userAgentPackageName: 'com.duichai.duichai',
-                errorImage: const Icon(Icons.map, color: Colors.grey),
               ),
               if (_tileError)
                 Positioned(

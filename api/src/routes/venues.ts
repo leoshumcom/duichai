@@ -105,7 +105,8 @@ export async function handleSearchVenues(request: Request, env: Env): Promise<Re
   const radius = parseFloat(url.searchParams.get('radius') || '5'); // 公里
   const type = url.searchParams.get('type');
   const city = url.searchParams.get('city');
-  const sort = url.searchParams.get('sort') || 'chaihuo'; // chaihuo | newest | distance
+  const sort = url.searchParams.get('sort') || 'chaihuo';
+  const q = url.searchParams.get('q'); // chaihuo | newest | distance
   const page = parseInt(url.searchParams.get('page') || '1');
   const limit = parseInt(url.searchParams.get('limit') || '20');
   const offset = (page - 1) * limit;
@@ -129,6 +130,13 @@ export async function handleSearchVenues(request: Request, env: Env): Promise<Re
   if (city && city !== '全国' && city !== '') {
     query += ' AND address LIKE ?';
     params.push(`%${city}%`);
+  }
+
+  // 关键词搜索
+  if (q && q.trim()) {
+    query += ' AND (name LIKE ? OR address LIKE ? OR description LIKE ? OR type LIKE ?)';
+    const likeQ = `%${q.trim()}%`;
+    params.push(likeQ, likeQ, likeQ, likeQ);
   }
 
   switch (sort) {

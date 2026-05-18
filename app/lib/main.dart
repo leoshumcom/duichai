@@ -109,6 +109,8 @@ class _DiscoverPageState extends State<DiscoverPage> {
   String _city = '全国';
   String _selectedType = '';
   String _sort = 'chaihuo';
+  String _searchQuery = '';
+  final _searchCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -121,6 +123,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
       final params = <String, String>{'sort': _sort, 'limit': '20'};
       if (_selectedType.isNotEmpty) params['type'] = _selectedType;
       if (_city != '全国') params['city'] = _city;
+      if (_searchQuery.isNotEmpty) params['q'] = _searchQuery;
       final res = await _api.get('/api/venues', params: params);
       if (res['success'] == true && res['data'] != null) {
         setState(() { _venues = res['data'] as List<dynamic>; _loading = false; });
@@ -291,12 +294,31 @@ class _DiscoverPageState extends State<DiscoverPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextField(
+                      controller: _searchCtrl,
+                      onChanged: (v) {
+                        setState(() => _searchQuery = v);
+                        _loadVenues();
+                      },
                       decoration: InputDecoration(
                         hintText: '搜索场地、俱乐部...',
                         prefixIcon: const Icon(Icons.search),
-                        suffixIcon: IconButton(
-                          icon: Icon(Icons.tune, color: _selectedType.isNotEmpty ? AppTheme.primary : null),
-                          onPressed: () => _showFilterDialog(context),
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_searchQuery.isNotEmpty)
+                              IconButton(
+                                icon: const Icon(Icons.clear, size: 20),
+                                onPressed: () {
+                                  _searchCtrl.clear();
+                                  setState(() => _searchQuery = '');
+                                  _loadVenues();
+                                },
+                              ),
+                            IconButton(
+                              icon: Icon(Icons.tune, size: 22, color: _selectedType.isNotEmpty ? AppTheme.primary : null),
+                              onPressed: () => _showFilterDialog(context),
+                            ),
+                          ],
                         ),
                       ),
                     ),

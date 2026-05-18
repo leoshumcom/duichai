@@ -216,6 +216,7 @@ function showPage(name) {
   document.querySelector(`.sidebar nav a[onclick*="'${name}'"]`).classList.add('active');
   if (name === 'dashboard') refreshDashboard();
   if (name === 'users') refreshUsers();
+  if (name === 'venues') refreshVenues();
 }
 
 async function api(path, method = 'GET', body = null) {
@@ -298,11 +299,54 @@ async function grantChaihuo() {
 }
 
 async function refreshUsers() {
-  if (!adminToken) { return; }
-  const res = await api('/api/admin/stats');
+  if (!adminToken) { showLoginModal(); return; }
   const tb = document.getElementById('userTable');
+  tb.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">加载中...</td></tr>';
+  const res = await api('/api/admin/users');
+  if (res.success && res.data) {
+    tb.innerHTML = res.data.map(u => {
+      const roleBadge = u.role === 'admin' || u.role === 'super_admin'
+        ? '<span class="badge green">admin</span>'
+        : u.role === 'owner'
+        ? '<span class="badge orange">owner</span>'
+        : '<span class="badge">user</span>';
+      const uidStr = u.uid ? `<span style="color:#999;font-size:12px">#${u.uid}</span>` : '';
+      return '<tr><td>' + u.email + ' ' + uidStr + '</td><td>' + u.nickname + '</td><td>' + (u.chaihuo_balance || 0) + '🔥</td><td>' + roleBadge + '</td></tr>';
+    }).join('');
+  } else {
+    tb.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">加载失败</td></tr>';
+  }
+}
+
+async function refreshVenues() {
+  if (!adminToken) { showLoginModal(); return; }
+  const el = document.getElementById('venueSection');
+  el.innerHTML = '<p style="color:#999">加载中...</p>';
+  const res = await api('/api/admin/venues');
+  if (res.success && res.data) {
+    let html = '<h3>场地列表</h3><table><thead><tr><th>名称</th><th>类型</th><th>柴火</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+    html += res.data.map(v => {
+      const statusBadge = v.status === 'approved' ? '<span class="badge green">已审核</span>'
+        : v.status === 'pending' ? '<span class="badge orange">待审核</span>'
+        : '<span class="badge red">' + v.status + '</span>';
+      const approveBtn = v.status === 'pending'
+        ? '<button class="btn-sm" onclick="approveVenue(\'' + v.id + '\')">通过</button>'
+        : '-';
+      return '<tr><td>' + v.name + '</td><td>' + v.type + '</td><td>' + (v.chaihuo_total || 0) + '</td><td>' + statusBadge + '</td><td>' + approveBtn + '</td></tr>';
+    }).join('');
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  } else {
+    el.innerHTML = '<p style="color:red">加载失败</p>';
+  }
+}
+
+async function approveVenue(venueId) {
+  const res = await api('/api/admin/venues/' + venueId + '/approve', 'POST');
   if (res.success) {
-    tb.innerHTML = '<tr><td>leoshum.com@gmail.com</td><td>66哥</td><td>' + (res.data.total_chaihuo || '?') + '🔥</td><td><span class="badge green">admin</span></td></tr>';
+    refreshVenues();
+  } else {
+    alert('操作失败: ' + (res.error || ''));
   }
 }
 

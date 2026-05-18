@@ -101,7 +101,6 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     GestureDetector(
                       onTap: () => _showAvatarPicker(context, auth),
@@ -143,15 +142,23 @@ class _ProfilePageState extends State<ProfilePage> {
                           Text(user?['nickname'] ?? '',
                               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),
-                          // Email row - wrapped in Flexible to prevent overflow
                           Row(
                             children: [
-                              Flexible(
-                                child: Text(user?['email'] ?? '',
-                                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                                    overflow: TextOverflow.ellipsis),
-                              ),
-                              const SizedBox(width: 8),
+                              Text(user?['email'] ?? '',
+                                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                              const SizedBox(width: 4),
+                              if (user?['uid'] != null) ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primary.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text('UID ${user!['uid']}',
+                                    style: const TextStyle(fontSize: 11, color: AppTheme.primary, fontWeight: FontWeight.w600)),
+                                ),
+                              ],
+                              const SizedBox(width: 4),
                               GestureDetector(
                                 onTap: () => _showEditProfileDialog(context, auth),
                                 child: Icon(Icons.edit, size: 14, color: AppTheme.primary),
@@ -159,23 +166,12 @@ class _ProfilePageState extends State<ProfilePage> {
                             ],
                           ),
                           const SizedBox(height: 8),
-                          // Level + UID + role row
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(children: [
-                              _buildBadge('Lv.${user?['level'] ?? 1}'),
-                              if (user?['uid'] != null) ...[
-                                const SizedBox(width: 6),
-                                _buildBadge('UID ${user!['uid']}',
-                                    bg: AppTheme.primary.withOpacity(0.1),
-                                    fg: AppTheme.primary),
-                              ],
-                              if (user?['role'] == 'owner') ...[
-                                const SizedBox(width: 6),
-                                _buildBadge('馆主', bg: AppTheme.primary.withOpacity(0.1), fg: AppTheme.primary),
-                              ],
-                            ]),
-                          ),
+                          Row(children: [
+                            _buildBadge('Lv.${user?['level'] ?? 1}'),
+                            const SizedBox(width: 8),
+                            if (user?['role'] == 'owner')
+                              _buildBadge('馆主', bg: AppTheme.primary.withOpacity(0.1), fg: AppTheme.primary),
+                          ]),
                         ],
                       ),
                     ),
@@ -239,14 +235,37 @@ class _ProfilePageState extends State<ProfilePage> {
       final bytes = await file.readAsBytes();
       final fileName = 'avatar_${auth.user!['user_id']}.jpg';
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('头像上传：R2上传模块待完善'),
-            backgroundColor: AppTheme.warmBrown, duration: Duration(seconds: 2)),
-      );
+      // 使用 FormData 上传到 R2
+      final dio = Dio(BaseOptions(baseUrl: 'https://api.duichai.com'));
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: fileName),
+        'user_id': auth.user!['user_id'],
+      });
+      final uploadRes = await dio.post('/api/upload', data: formData);
+
+      if (uploadRes.data['success'] == true) {
+        final avatarUrl = uploadRes.data['data']['url'] as String;
+
+        // 更新用户头像
+        final api = ApiClient();
+        await api.post('/api/users/me/avatar', data: {'avatar_url': avatarUrl});
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('头像更新成功')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('上传失败，请重试'), backgroundColor: Colors.red),
+          );
+        }
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('上传失败'), backgroundColor: Colors.red),
+          const SnackBar(content: Text('头像上传失败，请检查网络'), backgroundColor: Colors.red),
         );
       }
     }

@@ -25,8 +25,85 @@ class _RechargePageState extends State<RechargePage> {
 
   Future<void> _recharge() async {
     if (_selectedAmount <= 0) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('跳转支付中... 金额: ${_selectedAmount ~/ 10}元')),
+
+    // 显示订单确认弹窗
+    final pkg = _packages.firstWhere((p) => p['price'] == _selectedAmount);
+    final total = _selectedAmount + (pkg['bonus'] as int);
+    final priceYuan = _selectedAmount ~/ 10;
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Center(child: Text('确认充值')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.local_fire_department, size: 48, color: AppTheme.primary),
+            const SizedBox(height: 12),
+            Text('${pkg['label']}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.primary)),
+            const SizedBox(height: 4),
+            if ((pkg['bonus'] as int) > 0)
+              Text('赠送 ${pkg['bonus']} 根', style: const TextStyle(fontSize: 14, color: Colors.red)),
+            const SizedBox(height: 12),
+            Text('实付: ¥$priceYuan', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  Text('充值后会直接到账 ${total} 根柴火🔥', style: TextStyle(color: Colors.grey.shade700, fontSize: 14)),
+                  const SizedBox(height: 8),
+                  Text('支付方式: XorPay 扫码支付', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('正在跳转支付页面...'), backgroundColor: AppTheme.primary),
+              );
+              // TODO: 接入 XorPay/PayJS 支付
+              Future.delayed(const Duration(seconds: 1), () {
+                if (mounted) {
+                  showDialog(
+                    context: context,
+                    builder: (ctx2) => AlertDialog(
+                      title: const Text('支付测试'),
+                      content: const Text('XorPay 支付正在对接中，预计下一版本上线。\n\n当前为演示模式，点击确认模拟到账。'),
+                      actions: [
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(ctx2);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('充值成功！到账 $total 根柴火🔥')),
+                            );
+                          },
+                          child: const Text('模拟支付成功'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('确认支付 ¥$priceYuan'),
+          ),
+        ],
+      ),
     );
   }
 
