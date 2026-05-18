@@ -12,7 +12,7 @@ import { handleUpload, handleBatchUpload, handleDeleteFile } from './routes/uplo
 import { handleCreateClub, handleListClubs, handleGetClub, handleJoinClub, handleJoinRequest, handleListJoinRequests, handleApproveJoinRequest, handleRejectJoinRequest } from './routes/clubs';
 import { handleSendClubMessage, handleGetClubMessages } from './routes/club_messages';
 import { handleDashboardStats, handleUserTrend, handleRankings, handleAdminLogin, handleGrantChaihuo, handleAdminUsers, handleAdminVenues, handleAdminApproveVenue, handleAdminDeleteVenue, handleAdminOwnerApplications, handleAdminApproveOwnerApplication, handleAdminRejectOwnerApplication, handleAdminClubs, handleAdminClubCertifications, handleAdminApproveClubCert, handleAdminRejectClubCert, handleLevelInfo } from './routes/admin';
-import { handleMyTips, handleMyBadges, handleMyClubs, handleMyVenues, handleMyInvites, handleNotifications, handleMarkRead, handleUpdateAvatar, handleUpdateProfile } from './routes/profile';
+import { handleMyTips, handleMyBadges, handleMyClubs, handleMyVenues, handleMyInvites, handleNotifications, handleMarkRead, handleUpdateAvatar, handleUpdateProfile, handleLevelInfo } from './routes/profile';
 
 interface Env {
   duichai_db: D1Database;
@@ -96,6 +96,7 @@ export default {
     router.add('POST', '/api/users/me/notifications/read', async (req) => handleMarkRead(req, env));
     router.add('POST', '/api/users/me/avatar', async (req) => handleUpdateAvatar(req, env));
     router.add('POST', '/api/users/me/profile', async (req) => handleUpdateProfile(req, env));
+    router.add('GET', '/api/users/me/level-info', async (req) => handleLevelInfo(req, env));
 
     // ===== Admin =====
     router.add('POST', '/api/admin/login', async (req) => handleAdminLogin(req, env));

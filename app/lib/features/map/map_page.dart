@@ -116,92 +116,85 @@ class _MapPageState extends State<MapPage> {
           ),
         ],
       ),
-      body: Stack(
+      body: Column(
         children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(initialCenter: _center, initialZoom: 14),
-            children: [
-              TileLayer(
-                urlTemplate: _activeTileUrl,
-                userAgentPackageName: 'com.duichai.duichai',
-              ),
-              if (_tileError)
-                Positioned(
-                  top: 8,
-                  left: 8,
-                  right: 8,
-                  child: Material(
-                    elevation: 4,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.warning_amber, color: Colors.orange, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text('地图瓦片加载失败，点击右侧按钮切换地图源',
-                                style: const TextStyle(fontSize: 13)),
-                          ),
-                          TextButton(
-                            onPressed: _retryTile,
-                            child: const Text('切换', style: TextStyle(color: AppTheme.primary)),
-                          ),
-                        ],
-                      ),
+          // Map takes remaining space
+          Expanded(
+            child: Stack(
+              children: [
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(initialCenter: _center, initialZoom: 14),
+                  children: [
+                    TileLayer(
+                      urlTemplate: _activeTileUrl,
+                      userAgentPackageName: 'com.duichai.duichai',
                     ),
-                  ),
-                ),
-              MarkerLayer(
-                markers: _venues.map((v) {
-                  final lat = (v['latitude'] as num?)?.toDouble() ?? 0;
-                  final lng = (v['longitude'] as num?)?.toDouble() ?? 0;
-                  return Marker(
-                    point: LatLng(lat, lng),
-                    width: 40,
-                    height: 40,
-                    child: GestureDetector(
-                      onTap: () => Navigator.pushNamed(context, '/venue/detail', arguments: v['id']),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 4)],
+                    if (_tileError)
+                      Positioned(
+                        top: 8, left: 8, right: 8,
+                        child: Material(
+                          elevation: 4,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.warning_amber, color: Colors.orange, size: 20),
+                                const SizedBox(width: 8),
+                                const Expanded(child: Text('地图瓦片加载失败，点击右侧按钮切换地图源', style: TextStyle(fontSize: 13))),
+                                TextButton(onPressed: _retryTile, child: const Text('切换', style: TextStyle(color: AppTheme.primary))),
+                              ],
+                            ),
+                          ),
                         ),
-                        child: const Icon(Icons.local_fire_department, color: Colors.white, size: 18),
                       ),
+                    MarkerLayer(
+                      markers: _venues.map((v) {
+                        final lat = (v['latitude'] as num?)?.toDouble() ?? 0;
+                        final lng = (v['longitude'] as num?)?.toDouble() ?? 0;
+                        return Marker(
+                          point: LatLng(lat, lng),
+                          width: 40,
+                          height: 40,
+                          child: GestureDetector(
+                            onTap: () => Navigator.pushNamed(context, '/venue/detail', arguments: v['id']),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: AppTheme.primary,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2),
+                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 4)],
+                              ),
+                              child: const Icon(Icons.local_fire_department, color: Colors.white, size: 18),
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
-                  );
-                }).toList(),
-              ),
-            ],
+                  ],
+                ),
+                if (_loading)
+                  const Center(child: CircularProgressIndicator()),
+              ],
+            ),
           ),
+          // Bottom venue cards (fixed below map, no overflow)
           if (_venues.isNotEmpty)
-            Positioned(
-              left: 8, right: 8, bottom: 8,
-              child: Container(
-                height: 120,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
-                ),
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.all(8),
-                  itemCount: _venues.length,
-                  itemBuilder: (ctx, i) => _buildVenueCard(_venues[i]),
-                ),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 110),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, -2))],
+              ),
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                itemCount: _venues.length,
+                itemBuilder: (ctx, i) => _buildVenueCard(_venues[i]),
               ),
             ),
-          if (_loading)
-            const Center(child: CircularProgressIndicator()),
         ],
       ),
     );

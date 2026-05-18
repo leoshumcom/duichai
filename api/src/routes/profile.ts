@@ -208,6 +208,52 @@ export async function handleUpdateAvatar(request: Request, env: Env): Promise<Re
   return jsonResponse({ success: true, avatar_url });
 }
 
+/// 获取用户等级信息和升级进度
+export async function handleLevelInfo(request: Request, env: Env): Promise<Response> {
+  const userId = await getProfileUserId(request, env);
+  if (!userId) return jsonResponse({ error: "未登录" }, 401);
+
+  const user: any = await env.duichai_db.prepare(
+    'SELECT id, level, total_chaihuo_earned FROM users WHERE id = ?'
+  ).bind(userId).first();
+  if (!user) return jsonResponse({ error: "用户不存在" }, 404);
+
+  const levels: any = await env.duichai_db.prepare(
+    'SELECT level, name, min_chaihuo FROM user_levels ORDER BY level'
+  ).all();
+
+  const sorted = levels.results.sort((a: any, b: any) => a.level - b.level);
+  const idx = sorted.findIndex((l: any) => l.level === user.level);
+  const cur = sorted[idx] || sorted[0];
+  const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
+  const curMin = cur?.min_chaihuo || 0;
+  const chai = user.total_chaihuo_earned || 0;
+  const isMax = next === null;
+
+  let pct = 100, nextMin = curMin;
+  if (next) {
+    nextMin = next.min_chaihuo;
+    const range = nextMin - curMin;
+    pct = range > 0 ? ((chai - curMin) / range) * 100 : 0;
+    if (pct > 100) pct = 100;
+    if (pct < 0) pct = 0;
+  }
+
+  return jsonResponse({
+    success: true,
+    data: {
+      current_level: user.level,
+      current_name: cur?.name || '',
+      current_chaihuo: chai,
+      next_level: next?.level || null,
+      next_name: next?.name || null,
+      next_min_chaihuo: nextMin,
+      progress_pct: Math.round(pct),
+      is_max_level: isMax,
+    },
+  });
+}
+
 /// 更新用户资料
 export async function handleUpdateProfile(request: Request, env: Env): Promise<Response> {
   const userId = await getProfileUserId(request, env);

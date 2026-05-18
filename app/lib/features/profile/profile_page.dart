@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
@@ -19,6 +18,30 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  Map<String, dynamic>? _levelInfo;
+  bool _levelInfoLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLevelInfo();
+  }
+
+  Future<void> _loadLevelInfo() async {
+    try {
+      final api = ApiClient();
+      final res = await api.get('/api/users/me/level-info');
+      if (res['success'] == true && res['data'] != null) {
+        setState(() {
+          _levelInfo = res['data'] as Map<String, dynamic>;
+          _levelInfoLoaded = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _levelInfoLoaded = true);
+    }
+  }
+
   Future<void> _showEditProfileDialog(BuildContext context, AuthProvider auth) async {
     final user = auth.user;
     final nickCtrl = TextEditingController(text: user?['nickname'] ?? '');
@@ -51,15 +74,11 @@ class _ProfilePageState extends State<ProfilePage> {
         if (phoneCtrl.text.isNotEmpty) data['phone'] = phoneCtrl.text.trim();
         await api.post('/api/users/me/profile', data: data);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('资料更新成功')),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('资料更新成功')));
         }
       } catch (_) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('更新失败'), backgroundColor: Colors.red),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('更新失败'), backgroundColor: Colors.red));
         }
       }
     }
@@ -97,10 +116,12 @@ class _ProfilePageState extends State<ProfilePage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // ---- 用户信息卡片 ----
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     GestureDetector(
                       onTap: () => _showAvatarPicker(context, auth),
@@ -109,25 +130,17 @@ class _ProfilePageState extends State<ProfilePage> {
                           CircleAvatar(
                             radius: 36,
                             backgroundColor: AppTheme.primary,
-                            backgroundImage: user?['avatar'] != null
-                                ? NetworkImage(user!['avatar'])
-                                : null,
+                            backgroundImage: user?['avatar'] != null ? NetworkImage(user!['avatar']) : null,
                             child: user?['avatar'] == null
-                                ? Text(
-                                    (user?['nickname'] ?? '?').toString().substring(0, 1).toUpperCase(),
-                                    style: const TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold),
-                                  )
+                                ? Text((user?['nickname'] ?? '?').toString().substring(0, 1).toUpperCase(),
+                                    style: const TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold))
                                 : null,
                           ),
                           Positioned(
-                            bottom: 0,
-                            right: 0,
+                            bottom: 0, right: 0,
                             child: Container(
                               padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: AppTheme.primary,
-                                shape: BoxShape.circle,
-                              ),
+                              decoration: const BoxDecoration(color: AppTheme.primary, shape: BoxShape.circle),
                               child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
                             ),
                           ),
@@ -139,26 +152,19 @@ class _ProfilePageState extends State<ProfilePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // 昵称
                           Text(user?['nickname'] ?? '',
                               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),
+                          // 邮箱 (Flexible 防止溢出)
                           Row(
                             children: [
-                              Text(user?['email'] ?? '',
-                                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-                              const SizedBox(width: 4),
-                              if (user?['uid'] != null) ...[
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primary.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text('UID ${user!['uid']}',
-                                    style: const TextStyle(fontSize: 11, color: AppTheme.primary, fontWeight: FontWeight.w600)),
-                                ),
-                              ],
-                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(user?['email'] ?? '',
+                                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                    overflow: TextOverflow.ellipsis),
+                              ),
+                              const SizedBox(width: 8),
                               GestureDetector(
                                 onTap: () => _showEditProfileDialog(context, auth),
                                 child: Icon(Icons.edit, size: 14, color: AppTheme.primary),
@@ -166,12 +172,22 @@ class _ProfilePageState extends State<ProfilePage> {
                             ],
                           ),
                           const SizedBox(height: 8),
-                          Row(children: [
-                            _buildBadge('Lv.${user?['level'] ?? 1}'),
-                            const SizedBox(width: 8),
-                            if (user?['role'] == 'owner')
-                              _buildBadge('馆主', bg: AppTheme.primary.withOpacity(0.1), fg: AppTheme.primary),
-                          ]),
+                          // LV + UID + 角色（横排，可滚动）
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(children: [
+                              _buildBadge('Lv.${user?['level'] ?? 1}'),
+                              if (user?['uid'] != null) ...[
+                                const SizedBox(width: 6),
+                                _buildBadge('UID ${user!['uid']}',
+                                    bg: AppTheme.primary.withOpacity(0.1), fg: AppTheme.primary),
+                              ],
+                              if (user?['role'] == 'owner') ...[
+                                const SizedBox(width: 6),
+                                _buildBadge('馆主', bg: AppTheme.primary.withOpacity(0.1), fg: AppTheme.primary),
+                              ],
+                            ]),
+                          ),
                         ],
                       ),
                     ),
@@ -179,7 +195,10 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
+
             const SizedBox(height: 16),
+
+            // ---- 柴火 + 升级进度卡片 ----
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -192,7 +211,8 @@ class _ProfilePageState extends State<ProfilePage> {
                             children: [
                               const Text('🔥', style: TextStyle(fontSize: 24)),
                               const SizedBox(height: 4),
-                              Text('${user?['chaihuo_balance'] ?? 0}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                              Text('${user?['chaihuo_balance'] ?? 0}',
+                                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                               Text('柴火余额', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                             ],
                           ),
@@ -202,65 +222,32 @@ class _ProfilePageState extends State<ProfilePage> {
                             children: [
                               const Text('📈', style: TextStyle(fontSize: 24)),
                               const SizedBox(height: 4),
-                              Text('Lv.${user?['level'] ?? 1}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                              Text('用户等级', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                              if (_levelInfo != null && _levelInfo!['current_name'] != null)
+                                Text('${_levelInfo!['current_name']}',
+                                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))
+                              else
+                                Text('Lv.${user?['level'] ?? 1}',
+                                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                              Text('当前等级', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                             ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    // Level Progress
-                    FutureBuilder<Map<String, dynamic>>(
-                      future: _loadLevelInfo(),
-                      builder: (ctx, snap) {
-                        if (!snap.hasData) return const SizedBox.shrink();
-                        final info = snap.data!;
-                        final currentName = info['current_name'] ?? '';
-                        final nextName = info['next_name'];
-                        final progress = info['progress_pct'] ?? 0;
-                        final currentChaihuo = info['current_chaihuo'] ?? 0;
-                        final nextMin = info['next_min_chaihuo'];
-                        final isMax = info['is_max_level'] == true;
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(currentName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                                Text(
-                                  isMax ? '已达最高等级 🎉' : '下一级: $nextName',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: progress / 100.0,
-                                backgroundColor: Colors.grey.shade200,
-                                valueColor: const AlwaysStoppedAnimation(AppTheme.primary),
-                                minHeight: 8,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              isMax
-                                  ? '当前柴火: $currentChaihuo 🔥'
-                                  : '还需 ${nextMin - currentChaihuo} 柴火升级至 $nextName',
-                              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
+
+                    // 升级进度条
+                    if (_levelInfo != null) ...[
+                      const SizedBox(height: 16),
+                      _buildLevelProgress(_levelInfo!, user?['level'] ?? 1),
+                    ],
                   ],
                 ),
               ),
             ),
+
             const SizedBox(height: 24),
+
+            // ---- 菜单项 ----
             _menuItem(Icons.local_fire_department, '我的添柴', () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const MyTipsPage()));
             }),
@@ -279,11 +266,15 @@ class _ProfilePageState extends State<ProfilePage> {
             _menuItem(Icons.settings_outlined, '设置', () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsPage()));
             }),
+
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: () async { await auth.logout(); if (context.mounted) Navigator.pushReplacementNamed(context, '/home'); },
+                onPressed: () async {
+                  await auth.logout();
+                  if (context.mounted) Navigator.pushReplacementNamed(context, '/home');
+                },
                 style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
                 child: const Text('退出登录'),
               ),
@@ -294,15 +285,46 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Future<Map<String, dynamic>> _loadLevelInfo() async {
-    try {
-      final api = ApiClient();
-      final res = await api.get('/api/users/me/level-info');
-      if (res['success'] == true && res['data'] != null) {
-        return res['data'] as Map<String, dynamic>;
-      }
-    } catch (_) {}
-    return {};
+  Widget _buildLevelProgress(Map<String, dynamic> info, int currentLevel) {
+    final isMax = info['is_max_level'] == true;
+    final progress = (info['progress_pct'] as num?)?.toDouble() ?? 0;
+    final currentChaihuo = (info['current_chaihuo'] as num?)?.toInt() ?? 0;
+    final nextMin = (info['next_min_chaihuo'] as num?)?.toInt() ?? 0;
+    final curMin = (info['current_level'] as num?)?.toInt() == 1 ? 0 : null; // not used directly
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(info['current_name'] ?? 'Lv.$currentLevel',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            Text(
+              isMax ? '已达最高等级 🎉' : '下一级: ${info['next_name'] ?? ''}',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: (progress / 100.0).clamp(0.0, 1.0),
+            backgroundColor: Colors.grey.shade200,
+            valueColor: const AlwaysStoppedAnimation(AppTheme.primary),
+            minHeight: 8,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          isMax
+              ? '已累计获得 $currentChaihuo 🔥'
+              : '还需 ${nextMin - currentChaihuo} 柴火升级至 ${info['next_name'] ?? ''}',
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+        ),
+      ],
+    );
   }
 
   Future<void> _showAvatarPicker(BuildContext context, AuthProvider auth) async {
@@ -313,8 +335,6 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       final bytes = await file.readAsBytes();
       final fileName = 'avatar_${auth.user!['user_id']}.jpg';
-
-      // 使用 FormData 上传到 R2
       final dio = Dio(BaseOptions(baseUrl: 'https://api.duichai.com'));
       final formData = FormData.fromMap({
         'file': MultipartFile.fromBytes(bytes, filename: fileName),
@@ -324,28 +344,19 @@ class _ProfilePageState extends State<ProfilePage> {
 
       if (uploadRes.data['success'] == true) {
         final avatarUrl = uploadRes.data['data']['url'] as String;
-
-        // 更新用户头像
         final api = ApiClient();
         await api.post('/api/users/me/avatar', data: {'avatar_url': avatarUrl});
-
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('头像更新成功')),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('头像更新成功')));
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('上传失败，请重试'), backgroundColor: Colors.red),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('上传失败，请重试'), backgroundColor: Colors.red));
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('头像上传失败，请检查网络'), backgroundColor: Colors.red),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('头像上传失败，请检查网络'), backgroundColor: Colors.red));
       }
     }
   }
@@ -353,22 +364,8 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildBadge(String text, {Color? bg, Color? fg}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: bg ?? AppTheme.primary,
-        borderRadius: BorderRadius.circular(4),
-      ),
+      decoration: BoxDecoration(color: bg ?? AppTheme.primary, borderRadius: BorderRadius.circular(4)),
       child: Text(text, style: TextStyle(fontSize: 12, color: fg ?? Colors.white)),
-    );
-  }
-
-  Widget _statItem(String icon, String value, String label) {
-    return Column(
-      children: [
-        Text(icon, style: const TextStyle(fontSize: 24)),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-      ],
     );
   }
 
@@ -447,8 +444,7 @@ class _MyVenuesPageState extends State<MyVenuesPage> {
                         leading: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
-                            width: 60, height: 60,
-                            color: Colors.grey.shade200,
+                            width: 60, height: 60, color: Colors.grey.shade200,
                             child: photos.isNotEmpty
                                 ? Image.network(photos[0], fit: BoxFit.cover,
                                     errorBuilder: (_, __, ___) => const Icon(Icons.sports_basketball))
@@ -552,10 +548,8 @@ class _MyClubsPageState extends State<MyClubsPage> {
                       child: ListTile(
                         leading: CircleAvatar(
                           backgroundColor: AppTheme.primary.withOpacity(0.2),
-                          child: Text(
-                            (c['name'] ?? '?').toString().substring(0, 1),
-                            style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold),
-                          ),
+                          child: Text((c['name'] ?? '?').toString().substring(0, 1),
+                              style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold)),
                         ),
                         title: Row(
                           children: [
@@ -563,10 +557,8 @@ class _MyClubsPageState extends State<MyClubsPage> {
                             if (c['role'] != null) ...[const SizedBox(width: 6), Text('(${c['role']})', style: TextStyle(fontSize: 12, color: Colors.grey.shade500))],
                           ],
                         ),
-                        subtitle: Text(
-                          '${c['member_count'] ?? 1} 人 · 🔥${c['chaihuo_total'] ?? 0}',
-                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                        ),
+                        subtitle: Text('${c['member_count'] ?? 1} 人 · 🔥${c['chaihuo_total'] ?? 0}',
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                         trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                         onTap: () => Navigator.pushNamed(context, '/club/detail', arguments: c['id']),
                       ),
