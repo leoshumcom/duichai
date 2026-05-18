@@ -47,6 +47,11 @@ button.secondary{background:#f0f0f0;color:#333}
 </style>
 </head>
 <body>
+<!-- 未登录时显示的登录按钮 -->
+<div id="loginTrigger" style="text-align:center;padding-top:40vh;font-size:16px;color:#999">
+  <p style="margin-bottom:16px">堆柴管理后台</p>
+  <button onclick="showLoginModal()" style="padding:12px 32px;font-size:16px">🔑 管理员登录</button>
+</div>
 <div id="appContent" style="display:none">
 <div class="sidebar">
   <h2>🔥 堆柴</h2>
@@ -212,6 +217,7 @@ function updateLoginUI() {
   const btn = document.getElementById('loginBtn');
   const status = document.getElementById('loginStatus');
   const appContent = document.getElementById('appContent');
+  const loginTrigger = document.getElementById('loginTrigger');
   if (adminToken) {
     btn.textContent = '🚪 退出登录 (' + adminNickname + ')';
     btn.style.background = '#f44336';
@@ -219,6 +225,7 @@ function updateLoginUI() {
     status.textContent = '已登录';
     status.style.color = '#4CAF50';
     appContent.style.display = 'block';
+    if (loginTrigger) loginTrigger.style.display = 'none';
   } else {
     btn.textContent = '🔑 管理员登录';
     btn.style.background = '#f0f0f0';
@@ -227,6 +234,7 @@ function updateLoginUI() {
     status.textContent = '未登录';
     status.style.color = '#999';
     appContent.style.display = 'none';
+    if (loginTrigger) loginTrigger.style.display = 'block';
   }
 }
 
@@ -535,6 +543,9 @@ async function rejectClubCert(certId) {
 updateLoginUI();
 if (adminToken) {
   refreshDashboard();
+} else {
+  // 未登录时自动弹出登录弹窗
+  showLoginModal();
 }
 </script>
 </body>
