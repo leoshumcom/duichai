@@ -282,3 +282,70 @@ export async function handleRejectJoinRequest(request: Request, env: Env, clubId
     return jsonResponse({ error: '服务器错误' }, 500);
   }
 }
+
+// 更新俱乐部信息（仅创建者/管理员）
+export async function handleUpdateClub(request: Request, env: Env, clubId: string): Promise<Response> {
+  try {
+    const userId = await getUserId(request, env);
+    if (!userId) return jsonResponse({ error: '未登录' }, 401);
+
+    const member = await env.duichai_db.prepare(
+      "SELECT role FROM club_members WHERE club_id = ? AND user_id = ? AND role IN ('creator', 'admin')"
+    ).bind(clubId, userId).first();
+    if (!member) return jsonResponse({ error: '无权操作' }, 403);
+
+    const body: any = await request.json();
+    const { name, description, slogan, contact_wechat, contact_phone } = body;
+
+    const updates: string[] = [];
+    const params: any[] = [];
+    if (name !== undefined) { updates.push('name = ?'); params.push(name); }
+    if (description !== undefined) { updates.push('description = ?'); params.push(description); }
+    if (slogan !== undefined) { updates.push('slogan = ?'); params.push(slogan); }
+    if (contact_wechat !== undefined) { updates.push('contact_wechat = ?'); params.push(contact_wechat); }
+    if (contact_phone !== undefined) { updates.push('contact_phone = ?'); params.push(contact_phone); }
+
+    if (updates.length === 0) return jsonResponse({ error: '没有需要更新的字段' }, 400);
+
+    params.push(clubId);
+    await env.duichai_db.prepare(`UPDATE clubs SET ${updates.join(', ')} WHERE id = ?`).bind(...params).run();
+
+    return jsonResponse({ success: true, message: '俱乐部信息已更新' });
+  } catch (e) {
+    return jsonResponse({ error: '服务器错误' }, 500);
+  }
+}
+
+// 俱乐部认证申请
+export async function handleClubCertification(request: Request, env: Env, clubId: string): Promise<Response> {
+  try {
+    const userId = await getUserId(request, env);
+    if (!userId) return jsonResponse({ error: '未登录' }, 401);
+
+    const member = await env.duichai_db.prepare(
+      "SELECT role FROM club_members WHERE club_id = ? AND user_id = ? AND role = 'creator'"
+    ).bind(clubId, userId).first();
+    if (!member) return jsonResponse({ error: '仅创建者可申请认证' }, 403);
+
+    const body: any = await request.json();
+    const { business_license, contact_phone, contact_name } = body;
+    if (!business_license || !contact_phone) {
+      return jsonResponse({ error: 'business_license, contact_phone 为必填' }, 400);
+    }
+
+    const existing = await env.duichai_db.prepare(
+      "SELECT id FROM club_certifications WHERE club_id = ? AND status = 'pending'"
+    ).bind(clubId).first();
+    if (existing) return jsonResponse({ error: '已有待审核的认证申请' }, 409);
+
+    const id = generateId();
+    await env.duichai_db.prepare(`
+      INSERT INTO club_certifications (id, club_id, user_id, business_license, contact_phone, contact_name, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'pending')
+    `).bind(id, clubId, userId, business_license, contact_phone, contact_name || null).run();
+
+    return jsonResponse({ success: true, message: '认证申请已提交，等待审核' });
+  } catch (e) {
+    return jsonResponse({ error: '服务器错误' }, 500);
+  }
+}

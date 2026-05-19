@@ -222,47 +222,53 @@ class _DiscoverPageState extends State<DiscoverPage> {
     String tempSort = _sort;
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('筛选', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              const Text('运动类型', style: TextStyle(fontSize: 14, color: Colors.grey)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8, runSpacing: 8,
-                children: ['', '篮球', '足球', '羽毛球', '网球', '乒乓球', '跑步', '游泳', '滑板', '健身', '其他'].map((t) => ChoiceChip(
-                  label: Text(t.isEmpty ? '全部' : t, style: const TextStyle(fontSize: 13)),
-                  selected: tempType == t,
-                  onSelected: (v) => setSheetState(() => tempType = v ? t : ''),
-                )).toList(),
-              ),
-              const SizedBox(height: 16),
-              const Text('排序', style: TextStyle(fontSize: 14, color: Colors.grey)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: [['chaihuo', '🔥 柴火最多'], ['newest', '🆕 最新发布'], ['distance', '📍 距离最近']].map((opt) => ChoiceChip(
-                  label: Text(opt[1]),
-                  selected: tempSort == opt[0],
-                  onSelected: (v) => setSheetState(() => tempSort = opt[0]),
-                )).toList(),
-              ),
-              const SizedBox(height: 24),
-              Row(children: [
-                Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消'))),
-                const SizedBox(width: 12),
-                Expanded(child: ElevatedButton(onPressed: () {
-                  Navigator.pop(ctx);
-                  setState(() { _selectedType = tempType; _sort = tempSort; });
-                  _loadVenues();
-                }, child: const Text('确定'))),
-              ]),
-            ],
+        builder: (ctx, setSheetState) => SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 20, right: 20, top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('筛选', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                const Text('运动类型', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8, runSpacing: 8,
+                  children: ['', '篮球', '足球', '羽毛球', '网球', '乒乓球', '跑步', '游泳', '滑板', '健身', '其他'].map((t) => ChoiceChip(
+                    label: Text(t.isEmpty ? '全部' : t, style: const TextStyle(fontSize: 13)),
+                    selected: tempType == t,
+                    onSelected: (v) => setSheetState(() => tempType = v ? t : ''),
+                  )).toList(),
+                ),
+                const SizedBox(height: 16),
+                const Text('排序', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [['chaihuo', '🔥 柴火最多'], ['newest', '🆕 最新发布'], ['distance', '📍 距离最近']].map((opt) => ChoiceChip(
+                    label: Text(opt[1]),
+                    selected: tempSort == opt[0],
+                    onSelected: (v) => setSheetState(() => tempSort = opt[0]),
+                  )).toList(),
+                ),
+                const SizedBox(height: 24),
+                Row(children: [
+                  Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消'))),
+                  const SizedBox(width: 12),
+                  Expanded(child: ElevatedButton(onPressed: () {
+                    Navigator.pop(ctx);
+                    setState(() { _selectedType = tempType; _sort = tempSort; });
+                    _loadVenues();
+                  }, child: const Text('确定'))),
+                ]),
+              ],
+            ),
           ),
         ),
       ),

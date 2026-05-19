@@ -127,9 +127,11 @@ export async function handleSearchVenues(request: Request, env: Env): Promise<Re
     params.push(`%${type}%`);
   }
   // 城市模糊搜索——通过场地地址字段匹配
+  // 兼容「常州」和「常州市」两种写法
   if (city && city !== '全国' && city !== '') {
-    query += ' AND address LIKE ?';
-    params.push(`%${city}%`);
+    const cityWithShi = city.endsWith('市') ? city : city + '市';
+    query += ' AND (address LIKE ? OR address LIKE ?)';
+    params.push(`%${city}%`, `%${cityWithShi}%`);
   }
 
   // 关键词搜索
@@ -251,7 +253,7 @@ export async function handleGetVenueReviews(request: Request, env: Env, venueId:
   });
 }
 
-// 补充场地信息
+// 补充场地信息（任何人可补充）
 export async function handleSupplementVenue(request: Request, env: Env): Promise<Response> {
   try {
     const body: any = await request.json();
@@ -267,6 +269,62 @@ export async function handleSupplementVenue(request: Request, env: Env): Promise
     `).bind(generateId(), venue_id, user_id, content, JSON.stringify(photos || [])).run();
 
     return jsonResponse({ success: true, message: '补充提交成功，审核通过后将获得5根柴火' });
+  } catch (e) {
+    return jsonResponse({ error: '服务器错误' }, 500);
+  }
+}
+
+// 更新场地信息（仅发布者或馆主可编辑）
+export async function handleUpdateVenue(request: Request, env: Env, venueId: string): Promise<Response> {
+  try {
+    // 从Authorization头获取用户ID
+    const auth = request.headers.get('Authorization');
+    if (!auth || !auth.startsWith('Bearer ')) return jsonResponse({ error: '未登录' }, 401);
+    const token = auth.slice(7);
+    const session: any = await env.duichai_db.prepare(
+      'SELECT user_id FROM sessions WHERE token = ?'
+    ).bind(token).first();
+    if (!session) return jsonResponse({ error: '未登录' }, 401);
+    const userId = session.user_id;
+
+    // 获取场地
+    const venue: any = await env.duichai_db.prepare(
+      'SELECT * FROM venues WHERE id = ?'
+    ).bind(venueId).first();
+    if (!venue) return jsonResponse({ error: '场地不存在' }, 404);
+
+    // 检查权限：发布者或馆主
+    if (venue.publisher_id !== userId && venue.owner_id !== userId) {
+      return jsonResponse({ error: '仅场地发布者或馆主可编辑' }, 403);
+    }
+
+    const body: any = await request.json();
+    const { name, description, photos, videos, is_free, price_info, open_hours, address } = body;
+
+    const updates: string[] = [];
+    const params: any[] = [];
+
+    if (name !== undefined) { updates.push('name = ?'); params.push(name); }
+    if (description !== undefined) { updates.push('description = ?'); params.push(description); }
+    if (photos !== undefined) { updates.push('photos = ?'); params.push(JSON.stringify(photos)); }
+    if (videos !== undefined) { updates.push('videos = ?'); params.push(JSON.stringify(videos)); }
+    if (is_free !== undefined) { updates.push('is_free = ?'); params.push(is_free ? 1 : 0); }
+    if (price_info !== undefined) { updates.push('price_info = ?'); params.push(price_info); }
+    if (open_hours !== undefined) { updates.push('open_hours = ?'); params.push(open_hours); }
+    if (address !== undefined) { updates.push('address = ?'); params.push(address); }
+
+    if (updates.length === 0) {
+      return jsonResponse({ error: '没有需要更新的字段' }, 400);
+    }
+
+    updates.push("updated_at = datetime('now')");
+    params.push(venueId);
+
+    await env.duichai_db.prepare(
+      `UPDATE venues SET ${updates.join(', ')} WHERE id = ?`
+    ).bind(...params).run();
+
+    return jsonResponse({ success: true, message: '场地信息已更新' });
   } catch (e) {
     return jsonResponse({ error: '服务器错误' }, 500);
   }

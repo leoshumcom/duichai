@@ -7,9 +7,10 @@ import { Router } from './router';
 import { jsonResponse, corsHeaders } from './utils';
 import { initDB } from './db/init';
 import { handleRegister, handleLogin, handleLoginByUid, handleGetUser, handleGetMe, handleGetMyUid, handleSetUserUid } from './routes/auth';
-import { handleCreateVenue, handleGetVenue, handleSearchVenues, handleTipVenue, handleSupplementVenue, handleGetVenueReviews, handleCreateMatch, handleGetVenueMatches, handleJoinMatch, handleOwnerApply } from './routes/venues';
+import { handlePublicStats } from './routes/public';
+import { handleCreateVenue, handleGetVenue, handleSearchVenues, handleTipVenue, handleSupplementVenue, handleUpdateVenue, handleGetVenueReviews, handleCreateMatch, handleGetVenueMatches, handleJoinMatch, handleOwnerApply } from './routes/venues';
 import { handleUpload, handleBatchUpload, handleDeleteFile } from './routes/upload';
-import { handleCreateClub, handleListClubs, handleGetClub, handleJoinClub, handleJoinRequest, handleListJoinRequests, handleApproveJoinRequest, handleRejectJoinRequest } from './routes/clubs';
+import { handleCreateClub, handleListClubs, handleGetClub, handleUpdateClub, handleClubCertification, handleJoinClub, handleJoinRequest, handleListJoinRequests, handleApproveJoinRequest, handleRejectJoinRequest } from './routes/clubs';
 import { handleSendClubMessage, handleGetClubMessages } from './routes/club_messages';
 import { handleDashboardStats, handleUserTrend, handleRankings, handleAdminLogin, handleGrantChaihuo, handleAdminUsers, handleAdminVenues, handleAdminApproveVenue, handleAdminDeleteVenue, handleAdminOwnerApplications, handleAdminApproveOwnerApplication, handleAdminRejectOwnerApplication, handleAdminClubs, handleAdminClubCertifications, handleAdminApproveClubCert, handleAdminRejectClubCert, handleLevelInfo } from './routes/admin';
 import { handleMyTips, handleMyBadges, handleMyClubs, handleMyVenues, handleMyInvites, handleNotifications, handleMarkRead, handleUpdateAvatar, handleUpdateProfile, handleLevelInfo } from './routes/profile';
@@ -29,6 +30,9 @@ export default {
     router.add('OPTIONS', '/*', (req) => {
       return new Response(null, { headers: corsHeaders(req) });
     });
+
+    // Public stats (no auth required)
+    router.add('GET', '/api/public/stats', async (req) => handlePublicStats(req, env));
 
     // Health check
     router.add('GET', '/api/health', async () => {
@@ -65,6 +69,7 @@ export default {
     router.add('GET', '/api/venues', async (req) => handleSearchVenues(req, env));
     router.add('POST', '/api/venues/tip', async (req) => handleTipVenue(req, env));
     router.add('POST', '/api/venues/supplement', async (req) => handleSupplementVenue(req, env));
+    router.add('POST', '/api/venues/:id/update', async (req, params) => handleUpdateVenue(req, env, params.id));
     router.add('POST', '/api/venues/:id/match', async (req, params) => handleCreateMatch(req, env, params.id));
     router.add('GET', '/api/venues/:id/matches', async (req, params) => handleGetVenueMatches(req, env, params.id));
     router.add('POST', '/api/match/:id/join', async (req, params) => handleJoinMatch(req, env, params.id));
@@ -78,6 +83,8 @@ export default {
     router.add('POST', '/api/clubs', async (req) => handleCreateClub(req, env));
     router.add('GET', '/api/clubs', async (req) => handleListClubs(req, env));
     router.add('GET', '/api/clubs/:id', async (req, params) => handleGetClub(req, env, params.id));
+    router.add('POST', '/api/clubs/:id/update', async (req, params) => handleUpdateClub(req, env, params.id));
+    router.add('POST', '/api/clubs/:id/certify', async (req, params) => handleClubCertification(req, env, params.id));
     router.add('POST', '/api/clubs/join', async (req) => handleJoinClub(req, env));
     router.add('POST', '/api/clubs/:id/join-request', async (req, params) => handleJoinRequest(req, env, params.id));
     router.add('GET', '/api/clubs/:id/join-requests', async (req, params) => handleListJoinRequests(req, env, params.id));
