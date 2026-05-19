@@ -207,8 +207,13 @@ class _MapPageState extends State<MapPage> {
       child: Container(
         width: 160,
         margin: const EdgeInsets.only(right: 8),
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: Colors.grey.shade50),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          color: Colors.grey.shade50,
+        ),
+        clipBehavior: Clip.antiAlias,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
@@ -225,15 +230,24 @@ class _MapPageState extends State<MapPage> {
             Padding(
               padding: const EdgeInsets.all(6),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(venue['name'] ?? '', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                       maxLines: 1, overflow: TextOverflow.ellipsis),
-                  Row(children: [
-                    const Icon(Icons.local_fire_department, size: 12, color: AppTheme.primary),
-                    const SizedBox(width: 2),
-                    Text('${venue['chaihuo_total'] ?? 0}', style: const TextStyle(fontSize: 11, color: AppTheme.primary)),
-                  ]),
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.local_fire_department, size: 12, color: AppTheme.primary),
+                      const SizedBox(width: 2),
+                      Flexible(
+                        child: Text('${venue['chaihuo_total'] ?? 0}',
+                            style: const TextStyle(fontSize: 11, color: AppTheme.primary),
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),

@@ -220,15 +220,15 @@ class _ProfilePageState extends State<ProfilePage> {
                         Expanded(
                           child: Column(
                             children: [
-                              const Text('📈', style: TextStyle(fontSize: 24)),
+                              const Text('🔥', style: TextStyle(fontSize: 24)),
                               const SizedBox(height: 4),
-                              if (_levelInfo != null && _levelInfo!['current_name'] != null)
-                                Text('${_levelInfo!['current_name']}',
+                              if (_levelInfo != null && _levelInfo!['current_chaihuo'] != null)
+                                Text('${_levelInfo!['current_chaihuo']}',
                                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))
                               else
-                                Text('Lv.${user?['level'] ?? 1}',
+                                Text('${user?['chaihuo_balance'] ?? 0}',
                                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                              Text('当前等级', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                              Text('柴火值', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                             ],
                           ),
                         ),

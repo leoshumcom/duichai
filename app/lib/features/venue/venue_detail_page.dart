@@ -208,6 +208,113 @@ class _VenueDetailPageState extends State<VenueDetailPage> with SingleTickerProv
     }
   }
 
+  void _showEditVenueDialog(BuildContext context, Map<String, dynamic> venue) {
+    final nameCtrl = TextEditingController(text: venue['name'] ?? '');
+    final descCtrl = TextEditingController(text: venue['description'] ?? '');
+    final priceCtrl = TextEditingController(text: venue['price_description'] ?? '');
+    String selectedType = venue['type'] ?? '篮球';
+    bool isFree = venue['is_free'] ?? true;
+    bool submitting = false;
+    final types = ['篮球', '足球', '羽毛球', '网球', '乒乓球', '跑步', '游泳', '滑板', '瑜伽', '健身', '其他'];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('编辑场地'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: '场地名称')),
+                const SizedBox(height: 12),
+                const Text('运动类型', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8, runSpacing: 8,
+                  children: types.map((t) => ChoiceChip(
+                    label: Text(t),
+                    selected: selectedType == t,
+                    selectedColor: AppTheme.primary.withOpacity(0.15),
+                    onSelected: (v) => setDialogState(() => selectedType = t),
+                  )).toList(),
+                ),
+                const SizedBox(height: 12),
+                Row(children: [
+                  ChoiceChip(label: const Text('免费'), selected: isFree,
+                      selectedColor: Colors.green.shade50,
+                      onSelected: (v) => setDialogState(() => isFree = true)),
+                  const SizedBox(width: 8),
+                  ChoiceChip(label: const Text('收费'), selected: !isFree,
+                      selectedColor: AppTheme.primary.withOpacity(0.15),
+                      onSelected: (v) => setDialogState(() => isFree = false)),
+                ]),
+                if (!isFree) ...[
+                  const SizedBox(height: 12),
+                  TextField(controller: priceCtrl,
+                      decoration: const InputDecoration(labelText: '费用说明', hintText: '20元/小时')),
+                ],
+                const SizedBox(height: 12),
+                TextField(controller: descCtrl, maxLines: 3,
+                    decoration: const InputDecoration(labelText: '场地描述', alignLabelWithHint: true)),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            ElevatedButton(
+              onPressed: submitting ? null : () async {
+                if (nameCtrl.text.isEmpty) {
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('请填写场地名称')),
+                  );
+                  return;
+                }
+                setDialogState(() => submitting = true);
+                try {
+                  final api = ApiClient();
+                  final res = await api.put('/api/venues/${widget.venueId}', data: {
+                    'name': nameCtrl.text.trim(),
+                    'type': selectedType,
+                    'is_free': isFree,
+                    if (!isFree && priceCtrl.text.isNotEmpty) 'price_description': priceCtrl.text.trim(),
+                    if (descCtrl.text.isNotEmpty) 'description': descCtrl.text.trim(),
+                  });
+                  if (res['success'] == true) {
+                    Navigator.pop(ctx);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('场地信息已更新')),
+                      );
+                      _loadVenue();
+                    }
+                  } else {
+                    setDialogState(() => submitting = false);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(res['error'] ?? '更新失败'), backgroundColor: Colors.red),
+                      );
+                    }
+                  }
+                } catch (e) {
+                  setDialogState(() => submitting = false);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('网络错误'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              child: submitting
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('保存'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   String _formatTime(String? timeStr) {
     if (timeStr == null) return '';
     try {
@@ -236,6 +343,11 @@ class _VenueDetailPageState extends State<VenueDetailPage> with SingleTickerProv
     final v = _venue!;
     final photos = (v['photos'] as List?)?.cast<String>() ?? [];
     final topTippers = (v['top_tippers'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final auth = context.read<AuthProvider>();
+    final uid = '${auth.user?['user_id'] ?? ''}';
+    final pid = '${v['publisher_id'] ?? ''}';
+    final oid = '${v['owner_id'] ?? ''}';
+    final isCreator = auth.isLoggedIn && (uid == pid || uid == oid);
 
     return Scaffold(
       body: NestedScrollView(
@@ -243,6 +355,13 @@ class _VenueDetailPageState extends State<VenueDetailPage> with SingleTickerProv
           SliverAppBar(
             expandedHeight: 240,
             pinned: true,
+            actions: [
+              if (isCreator)
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () => _showEditVenueDialog(context, v),
+                ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: photos.isNotEmpty
                   ? Image.network(photos[0], fit: BoxFit.cover,

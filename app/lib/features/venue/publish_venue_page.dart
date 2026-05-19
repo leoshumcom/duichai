@@ -86,6 +86,33 @@ class _PublishVenuePageState extends State<PublishVenuePage> {
     }
     setState(() => _loading = true);
     try {
+      // 1. 先上传图片到R2
+      List<String> photoUrls = [];
+      if (_images.isNotEmpty) {
+        final uploadDio = Dio(BaseOptions(baseUrl: 'https://api.duichai.com'));
+        final formData = FormData();
+        for (int i = 0; i < _images.length; i++) {
+          final bytes = await _images[i].readAsBytes();
+          formData.files.add(MapEntry(
+            'files',
+            MultipartFile.fromBytes(
+              bytes,
+              filename: 'venue_${DateTime.now().millisecondsSinceEpoch}_$i.jpg',
+            ),
+          ));
+        }
+        final uploadRes = await uploadDio.post('/api/upload/batch', data: formData);
+        if (uploadRes.data['success'] == true && uploadRes.data['data'] != null) {
+          final data = uploadRes.data['data'];
+          if (data is List) {
+            photoUrls = data.cast<String>();
+          } else if (data is Map && data['urls'] != null) {
+            photoUrls = (data['urls'] as List).cast<String>();
+          }
+        }
+      }
+
+      // 2. 创建场地并附带图片URL
       final auth = context.read<AuthProvider>();
       await _api.post('/api/venues', data: {
         'name': _nameCtrl.text,
@@ -96,6 +123,7 @@ class _PublishVenuePageState extends State<PublishVenuePage> {
         'description': _descCtrl.text,
         'is_free': _isFree,
         'publisher_id': auth.isLoggedIn ? auth.user!['user_id'] : 'temp',
+        if (photoUrls.isNotEmpty) 'photos': photoUrls,
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -171,7 +171,8 @@ class _DiscoverPageState extends State<DiscoverPage> {
     '台湾省': ['台北', '新北', '桃园', '台中', '台南', '高雄', '基隆', '新竹', '嘉义'],
   };
 
-  Future<String> _showCityPicker(BuildContext context) async {
+  /// 返回用户选择的城市名，若取消则返回null（调用方自行判断）
+  Future<String?> _showCityPicker(BuildContext context) async {
     String? selectedProvince;
     final provinces = ['全国', ..._chinaCities.keys];
 
@@ -190,7 +191,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
         )).toList(),
       ),
     );
-    if (selectedProvince == null) return _city; // 取消
+    if (selectedProvince == null) return null; // 取消
     if (selectedProvince == '全国') return '全国';
 
     // Step 2: 选择城市
@@ -214,7 +215,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
         )).toList(),
       ),
     );
-    return selectedCity ?? _city;
+    return selectedCity;
   }
 
   void _showFilterDialog(BuildContext context) {
@@ -356,7 +357,8 @@ class _DiscoverPageState extends State<DiscoverPage> {
                     InkWell(
                       onTap: () async {
                         final result = await _showCityPicker(context);
-                        if (result != null) {
+                        if (result != null && result != _city) {
+                          debugPrint('city filter: $_city -> $result');
                           setState(() { _city = result; });
                           _loadVenues();
                         }

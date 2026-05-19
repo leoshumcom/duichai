@@ -105,7 +105,7 @@ class _ClubDetailPageState extends State<ClubDetailPage> with SingleTickerProvid
     }
 
     try {
-      final res = await _api.post('/api/clubs/${widget.clubId}/join-request');
+      final res = await _api.post('/api/clubs/${widget.clubId}/join-request', data: {});
       if (res['success'] == true) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -119,7 +119,8 @@ class _ClubDetailPageState extends State<ClubDetailPage> with SingleTickerProvid
           );
         }
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('join-request error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('网络错误'), backgroundColor: Colors.red),
@@ -287,6 +288,187 @@ class _ClubDetailPageState extends State<ClubDetailPage> with SingleTickerProvid
     setState(() => _showMentionPopup = false);
   }
 
+  // ===== Edit Club Dialog =====
+  void _showEditClubDialog(BuildContext context, Map<String, dynamic> club) {
+    final sloganCtrl = TextEditingController(text: club['slogan'] ?? '');
+    final descCtrl = TextEditingController(text: club['description'] ?? '');
+    final contactCtrl = TextEditingController(text: club['contact'] ?? '');
+    bool submitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('编辑俱乐部'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: sloganCtrl,
+                  decoration: const InputDecoration(labelText: '俱乐部口号', hintText: '热血青春，球场见！'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: '俱乐部介绍', alignLabelWithHint: true),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: contactCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '联系方式',
+                    hintText: '微信/手机号',
+                    prefixIcon: Icon(Icons.contact_phone_outlined),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            ElevatedButton(
+              onPressed: submitting
+                  ? null
+                  : () async {
+                      setDialogState(() => submitting = true);
+                      try {
+                        final api = ApiClient();
+                        final res = await api.put('/api/clubs/${widget.clubId}', data: {
+                          if (sloganCtrl.text.isNotEmpty) 'slogan': sloganCtrl.text.trim(),
+                          if (descCtrl.text.isNotEmpty) 'description': descCtrl.text.trim(),
+                          if (contactCtrl.text.isNotEmpty) 'contact': contactCtrl.text.trim(),
+                        });
+                        if (res['success'] == true) {
+                          Navigator.pop(ctx);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('俱乐部信息已更新')),
+                            );
+                            _loadClub();
+                          }
+                        } else {
+                          setDialogState(() => submitting = false);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(res['error'] ?? '更新失败'), backgroundColor: Colors.red),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        setDialogState(() => submitting = false);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('网络错误'), backgroundColor: Colors.red),
+                          );
+                        }
+                      }
+                    },
+              child: submitting
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('保存'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===== Certification Dialog =====
+  void _showCertificationDialog(BuildContext context, Map<String, dynamic> club) {
+    final licCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    final wechatCtrl = TextEditingController();
+    bool submitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('申请俱乐部认证'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('提交以下资料，管理员审核通过后俱乐部将获得认证标识',
+                    style: TextStyle(fontSize: 12, color: Colors.grey)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: licCtrl,
+                  decoration: const InputDecoration(labelText: '营业执照图片URL', hintText: '请上传营业执照图片后粘贴链接'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: phoneCtrl,
+                  decoration: const InputDecoration(labelText: '联系电话', hintText: '手机号'),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: wechatCtrl,
+                  decoration: const InputDecoration(labelText: '微信（选填）', hintText: '微信号'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            ElevatedButton(
+              onPressed: submitting
+                  ? null
+                  : () async {
+                      if (licCtrl.text.isEmpty || phoneCtrl.text.isEmpty) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('请填写必填信息'), backgroundColor: Colors.red),
+                          );
+                        }
+                        return;
+                      }
+                      setDialogState(() => submitting = true);
+                      try {
+                        final api = ApiClient();
+                        final res = await api.post('/api/clubs/${widget.clubId}/certify', data: {
+                          'business_license': licCtrl.text.trim(),
+                          'contact_phone': phoneCtrl.text.trim(),
+                          'contact_wechat': wechatCtrl.text.isNotEmpty ? wechatCtrl.text.trim() : null,
+                        });
+                        if (res['success'] == true) {
+                          Navigator.pop(ctx);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('认证申请已提交，等待审核')),
+                            );
+                            _loadClub();
+                          }
+                        } else {
+                          setDialogState(() => submitting = false);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(res['error'] ?? '提交失败'), backgroundColor: Colors.red),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        setDialogState(() => submitting = false);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('网络错误'), backgroundColor: Colors.red),
+                          );
+                        }
+                      }
+                    },
+              child: submitting
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('提交认证'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   String _formatTime(String? timeStr) {
     if (timeStr == null) return '';
     try {
@@ -323,6 +505,21 @@ class _ClubDetailPageState extends State<ClubDetailPage> with SingleTickerProvid
           SliverAppBar(
             expandedHeight: 200,
             pinned: true,
+            actions: [
+              if ('${c['creator_id'] ?? ''}' == '${context.read<AuthProvider>().user?['user_id'] ?? ''}')
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert),
+                  onSelected: (v) {
+                    if (v == 'edit') _showEditClubDialog(context, c);
+                    if (v == 'certify') _showCertificationDialog(context, c);
+                  },
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit), title: Text('编辑俱乐部'), dense: true)),
+                    if (c['is_certified'] != true)
+                      const PopupMenuItem(value: 'certify', child: ListTile(leading: Icon(Icons.verified), title: Text('申请认证'), dense: true)),
+                  ],
+                ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: BoxDecoration(
@@ -459,7 +656,7 @@ class _ClubDetailPageState extends State<ClubDetailPage> with SingleTickerProvid
               ),
 
           // 申请加入按钮（非成员显示）
-          if (!members.any((m) => m['id'] == auth.user?['user_id'])) ...[
+          if (!members.any((m) => '${m['id'] ?? ''}' == '${auth.user?['user_id'] ?? ''}')) ...[
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -475,7 +672,7 @@ class _ClubDetailPageState extends State<ClubDetailPage> with SingleTickerProvid
           ],
 
           // 审核申请（仅创建者可见）
-          if (c['creator_id'] == auth.user?['user_id']) ...[
+          if ('${c['creator_id'] ?? ''}' == '${auth.user?['user_id'] ?? ''}') ...[
             const SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -575,7 +772,7 @@ class _ClubDetailPageState extends State<ClubDetailPage> with SingleTickerProvid
 
   Widget _buildChatTab() {
     final auth = context.watch<AuthProvider>();
-    final isMember = _clubMembers.any((m) => m['id'] == auth.user?['user_id']);
+    final isMember = _clubMembers.any((m) => '${m['id'] ?? ''}' == '${auth.user?['user_id'] ?? ''}');
 
     return Column(
       children: [
