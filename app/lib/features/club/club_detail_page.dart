@@ -577,11 +577,26 @@ class _ClubDetailPageState extends State<ClubDetailPage> with SingleTickerProvid
                 child: Text(c['name'] ?? '', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               ),
               if (c['is_certified'] == true)
-                _badge('已认证')
-              else
-                _badge('待认证'),
+                _badge('已认证'),
             ],
           ),
+          // 未认证时，创建者可见「申请俱乐部认证」按钮
+          if (c['is_certified'] != true && '${c['creator_id'] ?? ''}' == '${auth.user?['user_id'] ?? ''}') ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _showCertificationDialog(context, c),
+                icon: const Icon(Icons.verified, size: 16),
+                label: const Text('申请俱乐部认证', style: TextStyle(fontSize: 13)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.primary,
+                  side: const BorderSide(color: AppTheme.primary),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+              ),
+            ),
+          ],
           if (c['slogan'] != null) ...[
             const SizedBox(height: 4),
             Text(c['slogan'], style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),

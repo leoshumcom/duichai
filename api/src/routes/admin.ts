@@ -305,6 +305,11 @@ export async function handleAdminApproveOwnerApplication(request: Request, env: 
       "UPDATE users SET role = 'owner', updated_at = datetime('now') WHERE id = ?"
     ).bind(app.user_id).run();
 
+    // 更新该用户发布的所有场地的 owner_id
+    await env.duichai_db.prepare(
+      "UPDATE venues SET owner_id = ?, updated_at = datetime('now') WHERE publisher_id = ? AND (owner_id IS NULL OR owner_id = '')"
+    ).bind(app.user_id, app.user_id).run();
+
     return jsonResponse({ success: true, message: '馆主认证通过' });
   } catch (e) {
     return jsonResponse({ error: 'Failed to approve' }, 500);

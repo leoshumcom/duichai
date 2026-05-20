@@ -67,7 +67,8 @@ export async function handleCreateVenue(request: Request, env: Env): Promise<Res
 // 获取场地详情
 export async function handleGetVenue(request: Request, env: Env, venueId: string): Promise<Response> {
   const venue: any = await env.duichai_db.prepare(`
-    SELECT v.*, u.nickname as publisher_name, u.avatar as publisher_avatar
+    SELECT v.*, u.nickname as publisher_name, u.avatar as publisher_avatar,
+           v.owner_id
     FROM venues v
     LEFT JOIN users u ON v.publisher_id = u.id
     WHERE v.id = ?
@@ -324,7 +325,7 @@ export async function handleUpdateVenue(request: Request, env: Env, venueId: str
     }
 
     const body: any = await request.json();
-    const { name, description, photos, videos, is_free, price_info, open_hours, address } = body;
+    const { name, description, photos, videos, is_free, price_info, price_description, open_hours, address, type } = body;
 
     const updates: string[] = [];
     const params: any[] = [];
@@ -337,6 +338,8 @@ export async function handleUpdateVenue(request: Request, env: Env, venueId: str
     if (price_info !== undefined) { updates.push('price_info = ?'); params.push(price_info); }
     if (open_hours !== undefined) { updates.push('open_hours = ?'); params.push(open_hours); }
     if (address !== undefined) { updates.push('address = ?'); params.push(address); }
+    if (type !== undefined) { updates.push('type = ?'); params.push(type); }
+    if (price_description !== undefined) { updates.push('price_info = ?'); params.push(price_description); }
 
     if (updates.length === 0) {
       return jsonResponse({ error: '没有需要更新的字段' }, 400);
@@ -377,10 +380,6 @@ export async function handleCreateMatch(request: Request, env: Env, venueId: str
     if (!match_time || !max_players) {
       return jsonResponse({ error: 'match_time, max_players 为必填' }, 400);
     }
-
-    // current_players 不在数据库表中（由 joiners 计数），先加 column 保证兼容
-    await env.duichai_db.prepare("ALTER TABLE match_sessions ADD COLUMN current_players INTEGER NOT NULL DEFAULT 1")
-      .run().catch(() => {});
 
     const id = generateId();
     await env.duichai_db.prepare(`

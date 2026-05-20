@@ -14,6 +14,7 @@ import { handleCreateClub, handleListClubs, handleGetClub, handleUpdateClub, han
 import { handleSendClubMessage, handleGetClubMessages } from './routes/club_messages';
 import { handleDashboardStats, handleUserTrend, handleRankings, handleAdminLogin, handleGrantChaihuo, handleAdminUsers, handleAdminVenues, handleAdminApproveVenue, handleAdminDeleteVenue, handleAdminOwnerApplications, handleAdminApproveOwnerApplication, handleAdminRejectOwnerApplication, handleAdminClubs, handleAdminClubCertifications, handleAdminApproveClubCert, handleAdminRejectClubCert, handleLevelInfo } from './routes/admin';
 import { handleMyTips, handleMyBadges, handleMyClubs, handleMyVenues, handleMyInvites, handleNotifications, handleMarkRead, handleUpdateAvatar, handleUpdateProfile, handleLevelInfo } from './routes/profile';
+import { handleDetectFace, handleFaceAuth } from './routes/face_auth';
 
 interface Env {
   duichai_db: D1Database;
@@ -93,6 +94,10 @@ export default {
     router.add('POST', '/api/clubs/:id/messages', async (req, params) => handleSendClubMessage(req, env, params.id));
     router.add('GET', '/api/clubs/:id/messages', async (req, params) => handleGetClubMessages(req, env, params.id));
 
+    // ===== Face Auth =====
+    router.add('POST', '/api/face/detect', async (req) => handleDetectFace(req, env));
+    router.add('POST', '/api/face/auth', async (req) => handleFaceAuth(req, env));
+
     // ===== Profile =====
     router.add('GET', '/api/users/me/tips', async (req) => handleMyTips(req, env));
     router.add('GET', '/api/users/me/badges', async (req) => handleMyBadges(req, env));
@@ -127,9 +132,6 @@ export default {
     router.add('GET', '/api/admin/club-certifications', async (req) => handleAdminClubCertifications(req, env));
     router.add('POST', '/api/admin/club-certifications/:id/approve', async (req, params) => handleAdminApproveClubCert(req, env, params.id));
     router.add('POST', '/api/admin/club-certifications/:id/reject', async (req, params) => handleAdminRejectClubCert(req, env, params.id));
-
-    // ===== Level Info =====
-    router.add('GET', '/api/users/me/level-info', async (req) => handleLevelInfo(req, env));
 
     // 404
     router.add('ALL', '/*', () => {

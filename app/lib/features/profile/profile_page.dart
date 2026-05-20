@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
@@ -196,6 +197,22 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
 
+            const SizedBox(height: 12),
+            // ---- 扫脸认证按钮 ----
+            Card(
+              child: ListTile(
+                leading: Icon(Icons.face_retouching_natural, color: AppTheme.primary),
+                title: Text(user?['face_authed'] == true ? '✅ 已扫脸认证' : '扫脸认证'),
+                subtitle: user?['face_authed'] == true
+                    ? Text('性别: ${user?['face_gender'] == 'female' ? '女' : '男'}', style: const TextStyle(fontSize: 12))
+                    : const Text('使用摄像头/相册进行人脸认证', style: TextStyle(fontSize: 12)),
+                trailing: user?['face_authed'] == true
+                    ? Icon(Icons.check_circle, color: Colors.green.shade400)
+                    : const Icon(Icons.chevron_right, color: Colors.grey),
+                onTap: () => _showFaceAuthDialog(context, auth, user),
+              ),
+            ),
+
             const SizedBox(height: 16),
 
             // ---- 柴火 + 升级进度卡片 ----
@@ -346,8 +363,13 @@ class _ProfilePageState extends State<ProfilePage> {
         final avatarUrl = uploadRes.data['data']['url'] as String;
         final api = ApiClient();
         await api.post('/api/users/me/avatar', data: {'avatar_url': avatarUrl});
-        // 刷新AuthProvider用户数据，更新头像显示
-        auth.refreshUser();
+        // 强制刷新用户数据
+        await auth.refreshUser();
+        // 如果 refreshUser 没有返回头像，手动设置
+        if (auth.user?['avatar'] == null || (auth.user?['avatar'] as String).isEmpty) {
+          auth.user?['avatar'] = avatarUrl;
+          auth.notifyListeners();
+        }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('头像更新成功')));
         }
@@ -359,6 +381,123 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('头像上传失败，请检查网络'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  Future<void> _showFaceAuthDialog(BuildContext context, AuthProvider auth, Map<String, dynamic>? user) async {
+    if (user?['face_authed'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('您已完成扫脸认证')),
+      );
+      return;
+    }
+
+    final picker = ImagePicker();
+    final source = await showDialog<ImageSource>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('扫脸认证'),
+        content: const Text('请选择拍照或从相册选择一张正脸照片'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, ImageSource.camera), child: const Text('拍照')),
+          TextButton(onPressed: () => Navigator.pop(ctx, ImageSource.gallery), child: const Text('相册')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+        ],
+      ),
+    );
+    if (source == null) return;
+
+    final file = await picker.pickImage(source: source, maxWidth: 1024, maxHeight: 1024);
+    if (file == null) return;
+
+    try {
+      // 展示加载中
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final bytes = await file.readAsBytes();
+      String binary = '';
+      bytes.forEach((byte) { binary += String.fromCharCode(byte); });
+      final imageBase64 = base64Encode(bytes);
+
+      // 上传到 /api/face/detect 检测
+      final api = ApiClient();
+      final detectRes = await api.post('/api/face/detect', data: {
+        'image_base64': imageBase64,
+      });
+
+      // 关闭加载对话框
+      if (mounted) Navigator.pop(context);
+
+      if (detectRes['success'] == true && detectRes['data'] != null) {
+        final faceData = detectRes['data'] as Map<String, dynamic>;
+        final gender = faceData['gender'] as String? ?? 'male';
+        final age = faceData['age'] as int? ?? 0;
+        final genderDisplay = gender == 'female' ? '女' : '男';
+        final frameDisplay = gender == 'female' ? '🎀 头像框' : '⭐ 头像框';
+
+        // 确认对话框
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('扫脸结果'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('性别: $genderDisplay'),
+                Text('年龄: ${age}岁'),
+                const SizedBox(height: 8),
+                Text('将分配: $frameDisplay', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600)),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+              ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('确认认证')),
+            ],
+          ),
+        );
+
+        if (confirmed == true) {
+          // 调用 /api/face/auth 完成认证注册
+          final authRes = await api.post('/api/face/auth', data: {
+            'image_base64': imageBase64,
+          });
+
+          if (authRes['success'] == true) {
+            await auth.refreshUser();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('扫脸认证成功！')),
+              );
+              setState(() {});
+            }
+          } else {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(authRes['error'] ?? '认证失败'), backgroundColor: Colors.red),
+              );
+            }
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(detectRes['error'] ?? '未检测到人脸'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // 关闭可能还在的加载框
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('扫脸认证失败，请检查网络'), backgroundColor: Colors.red),
+        );
       }
     }
   }
