@@ -346,6 +346,8 @@ class _ProfilePageState extends State<ProfilePage> {
         final avatarUrl = uploadRes.data['data']['url'] as String;
         final api = ApiClient();
         await api.post('/api/users/me/avatar', data: {'avatar_url': avatarUrl});
+        // 刷新AuthProvider用户数据，更新头像显示
+        auth.refreshUser();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('头像更新成功')));
         }

@@ -198,10 +198,35 @@ export async function handleTipVenue(request: Request, env: Env): Promise<Respon
       `).bind(generateId(), venue_id, user_id, amount, content || null, JSON.stringify(photos || [])).run();
     }
 
+    // 添柴后自动检查并发放勋章
+    await _autoAwardBadges(env, user_id, venue_id);
+
     return jsonResponse({ success: true, message: '添柴成功' });
   } catch (_) {
     return jsonResponse({ error: '服务器错误' }, 500);
   }
+}
+
+// 自动发放勋章
+async function _autoAwardBadges(env: Env, userId: string, venueId: string): Promise<void> {
+  try {
+    // 检查「榜一大哥」：当前场地添柴TOP3
+    const existingTop = await env.duichai_db.prepare(
+      "SELECT id FROM user_badges WHERE user_id = ? AND badge_id = 'top_tipper'"
+    ).bind(userId).first();
+    if (!existingTop) {
+      const tipRank: any = await env.duichai_db.prepare(`
+        SELECT user_id, SUM(ABS(amount)) as total FROM chaihuo_transactions
+        WHERE reference_id = ? AND reference_type = 'venue' AND type = 'tip_given'
+        GROUP BY user_id ORDER BY total DESC LIMIT 1
+      `).bind(venueId).first();
+      if (tipRank && tipRank.user_id === userId) {
+        await env.duichai_db.prepare(
+          "INSERT OR IGNORE INTO user_badges (id, user_id, badge_id) VALUES (?, ?, 'top_tipper')"
+        ).bind(generateId(), userId).run();
+      }
+    }
+  } catch (_) {}
 }
 
 // 获取场地评价列表

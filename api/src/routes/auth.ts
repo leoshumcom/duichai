@@ -166,6 +166,17 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
       'INSERT OR REPLACE INTO sessions (token, user_id) VALUES (?, ?)'
     ).bind(token, user.id).run();
 
+    // 登录时按 total_chaihuo_earned 同步等级
+    const levelRow: any = await env.duichai_db.prepare(`
+      SELECT MAX(level) as new_level FROM user_levels 
+      WHERE min_chaihuo <= (SELECT COALESCE(total_chaihuo_earned, 0) FROM users WHERE id = ?)
+    `).bind(user.id).first();
+    if (levelRow?.new_level) {
+      await env.duichai_db.prepare('UPDATE users SET level = ? WHERE id = ? AND level < ?')
+        .bind(levelRow.new_level, user.id, levelRow.new_level).run();
+      user.level = levelRow.new_level;
+    }
+
     return jsonResponse({
       success: true,
       data: {

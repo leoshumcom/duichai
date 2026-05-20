@@ -183,7 +183,7 @@ class _MapPageState extends State<MapPage> {
           // Bottom venue cards (fixed below map, no overflow)
           if (_venues.isNotEmpty)
             Container(
-              constraints: const BoxConstraints(maxHeight: 110),
+              constraints: const BoxConstraints(maxHeight: 130),
               decoration: BoxDecoration(
                 color: Colors.white,
                 boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, -2))],

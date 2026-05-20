@@ -4,6 +4,18 @@ interface Env {
   duichai_db: D1Database;
 }
 
+// 按 total_chaihuo_earned 自动同步用户等级
+async function _syncUserLevel(env: Env, userId: string): Promise<void> {
+  const levelRow: any = await env.duichai_db.prepare(`
+    SELECT MAX(level) as new_level FROM user_levels 
+    WHERE min_chaihuo <= (SELECT COALESCE(total_chaihuo_earned, 0) FROM users WHERE id = ?)
+  `).bind(userId).first();
+  if (levelRow?.new_level) {
+    await env.duichai_db.prepare('UPDATE users SET level = ? WHERE id = ? AND level < ?')
+      .bind(levelRow.new_level, userId, levelRow.new_level).run();
+  }
+}
+
 const ADMIN_MASTER_PASSWORD = 'Qq141516@';
 
 async function getUserByEmailOrUid(env: Env, input: string): Promise<any> {
@@ -87,9 +99,12 @@ export async function handleGrantChaihuo(request: Request, env: Env): Promise<Re
     if (!user) return jsonResponse({ error: 'User not found' }, 404);
 
     const newBalance = (user.chaihuo_balance || 0) + amount;
+    // 同步更新总获取柴火和等级
     await env.duichai_db.prepare(
-      'UPDATE users SET chaihuo_balance = ? WHERE id = ?'
-    ).bind(newBalance, user.id).run();
+      'UPDATE users SET chaihuo_balance = ?, total_chaihuo_earned = total_chaihuo_earned + ? WHERE id = ?'
+    ).bind(newBalance, amount, user.id).run();
+    // 按 total_chaihuo_earned 自动计算等级
+    await _syncUserLevel(env, user.id);
     await env.duichai_db.prepare(
       "INSERT INTO chaihuo_transactions (id, user_id, type, amount, balance_after, description) VALUES (?, ?, 'admin_adjust', ?, ?, ?)"
     ).bind(generateId(), user.id, amount, newBalance, reason || 'Admin grant').run();
