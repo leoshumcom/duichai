@@ -82,7 +82,7 @@ export async function handleGetVenue(request: Request, env: Env, venueId: string
 
   // 获取添柴TOP3
   const topTippers: any[] = await env.duichai_db.prepare(`
-    SELECT u.id, u.nickname, u.avatar, SUM(ct.amount) as total_chaihuo
+    SELECT u.id, u.nickname, u.avatar, SUM(ct.amount) * -1 as total_chaihuo
     FROM chaihuo_transactions ct
     JOIN users u ON ct.user_id = u.id
     WHERE ct.reference_id = ? AND ct.reference_type = 'venue' AND ct.type = 'tip_given'
@@ -126,12 +126,12 @@ export async function handleSearchVenues(request: Request, env: Env): Promise<Re
     query += ' AND type LIKE ?';
     params.push(`%${type}%`);
   }
-  // 城市模糊搜索——通过场地地址字段匹配
+  // 城市模糊搜索——通过场地名称+地址字段匹配
   // 兼容「常州」和「常州市」两种写法
   if (city && city !== '全国' && city !== '') {
     const cityWithShi = city.endsWith('市') ? city : city + '市';
-    query += ' AND (address LIKE ? OR address LIKE ?)';
-    params.push(`%${city}%`, `%${cityWithShi}%`);
+    query += ' AND (name LIKE ? OR name LIKE ? OR address LIKE ? OR address LIKE ?)';
+    params.push(`%${city}%`, `%${cityWithShi}%`, `%${city}%`, `%${cityWithShi}%`);
   }
 
   // 关键词搜索

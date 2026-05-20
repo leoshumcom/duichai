@@ -12,7 +12,7 @@ export async function handlePublicStats(request: Request, env: Env): Promise<Res
     SELECT 
       (SELECT COUNT(*) FROM venues WHERE status = 'approved') as total_venues,
       (SELECT COUNT(*) FROM users) as total_users,
-      (SELECT COUNT(*) FROM clubs WHERE status = 'approved') as total_clubs,
+      (SELECT COUNT(*) FROM clubs WHERE status = 'active') as total_clubs,
       (SELECT COALESCE(SUM(chaihuo_total), 0) FROM venues) as total_chaihuo
   `).first();
 
