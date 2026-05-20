@@ -7,7 +7,7 @@ import { Router } from './router';
 import { jsonResponse, corsHeaders } from './utils';
 import { initDB } from './db/init';
 import { handleRegister, handleLogin, handleLoginByUid, handleGetUser, handleGetMe, handleGetMyUid, handleSetUserUid } from './routes/auth';
-import { handlePublicStats } from './routes/public';
+import { handlePublicStats, handleDownloadApk } from './routes/public';
 import { handleCreateVenue, handleGetVenue, handleSearchVenues, handleTipVenue, handleSupplementVenue, handleUpdateVenue, handleGetVenueReviews, handleCreateMatch, handleGetVenueMatches, handleJoinMatch, handleOwnerApply } from './routes/venues';
 import { handleUpload, handleBatchUpload, handleDeleteFile } from './routes/upload';
 import { handleCreateClub, handleListClubs, handleGetClub, handleUpdateClub, handleClubCertification, handleJoinClub, handleJoinRequest, handleListJoinRequests, handleApproveJoinRequest, handleRejectJoinRequest } from './routes/clubs';
@@ -34,6 +34,7 @@ export default {
 
     // Public stats (no auth required)
     router.add('GET', '/api/public/stats', async (req) => handlePublicStats(req, env));
+    router.add('GET', '/api/download/android', async (req) => handleDownloadApk(req, env));
 
     // Health check
     router.add('GET', '/api/health', async () => {
