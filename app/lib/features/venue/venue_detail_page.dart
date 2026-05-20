@@ -104,7 +104,7 @@ class _VenueDetailPageState extends State<VenueDetailPage> with SingleTickerProv
     try {
       await _api.post('/api/venues/tip', data: {
         'venue_id': widget.venueId,
-        'user_id': auth.user!['user_id'],
+        'user_id': auth.user?['user_id'] ?? '',
         'amount': tipAmount,
         'content': _tipCtrl.text.isNotEmpty ? _tipCtrl.text : null,
       });
@@ -113,7 +113,9 @@ class _VenueDetailPageState extends State<VenueDetailPage> with SingleTickerProv
           const SnackBar(content: Text('添柴成功！🔥')),
         );
         _loadVenue();
-        _loadReviews(); // 刷新评价
+        _loadReviews();
+        // 刷新AuthProvider用户数据（更新余额）
+        auth.refreshUser();
         _tipCtrl.clear();
       }
     } catch (_) {

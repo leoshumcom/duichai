@@ -59,6 +59,18 @@ class AuthProvider extends ChangeNotifier {
     return res;
   }
 
+  /// 刷新用户数据（添柴后调用，更新缓存余额）
+  Future<void> refreshUser() async {
+    if (_token == null) return;
+    try {
+      final res = await _api.get('/api/users/me');
+      if (res['success'] == true && res['data'] != null) {
+        _user = res['data'];
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
   Future<void> logout() async {
     _token = null;
     _user = null;

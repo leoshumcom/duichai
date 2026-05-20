@@ -2,14 +2,23 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// API 基础配置
+/// API 基础配置（单例模式）
+///
+/// 所有 ApiClient() 返回同一实例，保证 token 全局同步
 class ApiClient {
   static const String _baseUrl = 'https://api.duichai.com';
   static const String _tokenKey = 'duichai_auth_token';
 
   late final Dio _dio;
 
-  ApiClient() {
+  // --- 单例 ---
+  static final ApiClient _instance = ApiClient._internal();
+  static ApiClient get instance => _instance;
+
+  /// 保持向后兼容：`ApiClient()` 返回单例
+  factory ApiClient() => _instance;
+
+  ApiClient._internal() {
     _dio = Dio(BaseOptions(
       baseUrl: _baseUrl,
       connectTimeout: const Duration(seconds: 10),
@@ -60,9 +69,14 @@ class ApiClient {
 
   // 设置认证 Token（持久化）
   Future<void> setToken(String token) async {
-    _dio.options.headers['Authorization'] = 'Bearer $token';
+    setHeaderToken(token);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
+  }
+
+  /// 仅设置请求头Token（不持久化）
+  void setHeaderToken(String token) {
+    _dio.options.headers['Authorization'] = 'Bearer $token';
   }
 
   Future<void> clearToken() async {
@@ -71,4 +85,3 @@ class ApiClient {
     await prefs.remove(_tokenKey);
   }
 }
-

@@ -199,7 +199,7 @@ export async function handleTipVenue(request: Request, env: Env): Promise<Respon
     }
 
     return jsonResponse({ success: true, message: '添柴成功' });
-  } catch (e) {
+  } catch (_) {
     return jsonResponse({ error: '服务器错误' }, 500);
   }
 }

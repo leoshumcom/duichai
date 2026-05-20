@@ -122,7 +122,7 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
       message: '注册成功' + (inviterId ? '，获得10根邀请奖励柴火🔥' : ''),
       data: { user_id: id, uid, nickname, invite_code: inviteCode },
     }, 201);
-  } catch (e) {
+  } catch (_) {
     return jsonResponse({ error: '服务器错误' }, 500);
   }
 }
@@ -181,7 +181,7 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
         token,
       },
     });
-  } catch (e) {
+  } catch (_) {
     return jsonResponse({ error: '服务器错误' }, 500);
   }
 }
