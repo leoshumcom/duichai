@@ -527,8 +527,7 @@ class _VenueDetailPageState extends State<VenueDetailPage> with SingleTickerProv
             ),
           ),
           // 申请成为馆主按钮（仅场馆无owner且当前用户不是owner时显示）
-          final _isOwnerRole = context.read<AuthProvider>().user?['role'] == 'owner';
-          if ((v['owner_id'] == null || '${v['owner_id']}' == '') && !_isOwnerRole) ...[
+          if ((v['owner_id'] == null || '${v['owner_id']}' == '') && (context.read<AuthProvider>().user?['role'] != 'owner')) ...[
           const Divider(),
           const SizedBox(height: 8),
           SizedBox(
