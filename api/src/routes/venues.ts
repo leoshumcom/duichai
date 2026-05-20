@@ -378,6 +378,10 @@ export async function handleCreateMatch(request: Request, env: Env, venueId: str
       return jsonResponse({ error: 'match_time, max_players 为必填' }, 400);
     }
 
+    // current_players 不在数据库表中（由 joiners 计数），先加 column 保证兼容
+    await env.duichai_db.prepare("ALTER TABLE match_sessions ADD COLUMN current_players INTEGER NOT NULL DEFAULT 1")
+      .run().catch(() => {});
+
     const id = generateId();
     await env.duichai_db.prepare(`
       INSERT INTO match_sessions (id, venue_id, creator_id, match_time, max_players, current_players, notes)
