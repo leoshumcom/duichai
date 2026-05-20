@@ -133,7 +133,7 @@ export async function handleDetectFace(request: Request, env: Env): Promise<Resp
     const payload = JSON.stringify({
       MaxFaceNum: 1,
       MinFaceSize: 0,
-      ImageBase64: imageBase64,
+      Image: imageBase64,
       NeedFaceAttributes: 1,  // 返回年龄/性别等属性
     });
 
@@ -141,7 +141,7 @@ export async function handleDetectFace(request: Request, env: Env): Promise<Resp
       'Content-Type': 'application/json; charset=utf-8',
       'Host': 'iai.tencentcloudapi.com',
       'X-TC-Action': 'DetectFace',
-      'X-TC-Version': '2020-03-04',
+      'X-TC-Version': '2020-03-03',
       'X-TC-Region': 'ap-guangzhou',
     };
 
@@ -178,10 +178,11 @@ export async function handleDetectFace(request: Request, env: Env): Promise<Resp
       return jsonResponse({ error: '未检测到人脸' }, 400);
     }
 
-    // 提取性别和年龄
-    const genderValue = faceInfo.Gender || 0;  // 1=male, 2=female
-    const gender = genderValue === 2 ? 'female' : 'male';
-    const age = faceInfo.Age || 0;
+    // FaceAttributesInfo 包含性别年龄等
+    const attr = faceInfo.FaceAttributesInfo || {};
+    const genderValue = attr.Gender;  // Tencent: 0=女, 1=男
+    const gender = genderValue === 1 ? 'male' : 'female';
+    const age = attr.Age || 0;
 
     return jsonResponse({
       success: true,
@@ -190,7 +191,6 @@ export async function handleDetectFace(request: Request, env: Env): Promise<Resp
         gender_value: genderValue,
         age,
         face_rect: faceInfo.FaceRect || null,
-        face_id: faceInfo.FaceId || null,
       },
     });
   } catch (e) {
@@ -245,7 +245,7 @@ export async function handleFaceAuth(request: Request, env: Env): Promise<Respon
     const payload = JSON.stringify({
       MaxFaceNum: 1,
       MinFaceSize: 0,
-      ImageBase64: imageBase64,
+      Image: imageBase64,
       NeedFaceAttributes: 1,
     });
 
@@ -253,7 +253,7 @@ export async function handleFaceAuth(request: Request, env: Env): Promise<Respon
       'Content-Type': 'application/json; charset=utf-8',
       'Host': 'iai.tencentcloudapi.com',
       'X-TC-Action': 'DetectFace',
-      'X-TC-Version': '2020-03-04',
+      'X-TC-Version': '2020-03-03',
       'X-TC-Region': 'ap-guangzhou',
     };
 
@@ -290,8 +290,9 @@ export async function handleFaceAuth(request: Request, env: Env): Promise<Respon
       return jsonResponse({ error: '未检测到人脸' }, 400);
     }
 
-    const genderValue = faceInfo.Gender || 0;
-    const gender = genderValue === 2 ? 'female' : 'male';
+    const attr = faceInfo.FaceAttributesInfo || {};
+    const genderValue = attr.Gender;  // Tencent: 0=女, 1=男
+    const gender = genderValue === 1 ? 'male' : 'female';
 
     // 根据性别分配头像框
     const avatarFrameId = gender === 'female' ? 'frame_ribbon' : 'frame_default';

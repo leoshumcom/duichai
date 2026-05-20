@@ -288,7 +288,7 @@ async function getUserFromToken(request: Request, env: Env): Promise<any | null>
   if (!session) return null;
 
   const user: any = await env.duichai_db.prepare(
-    'SELECT id, email, nickname, phone, avatar, role, level, chaihuo_balance, total_chaihuo_earned, invite_code, uid, created_at FROM users WHERE id = ?'
+    'SELECT id, email, nickname, phone, avatar, role, level, chaihuo_balance, total_chaihuo_earned, invite_code, uid, created_at, face_authed, face_gender, avatar_frame_id FROM users WHERE id = ?'
   ).bind(session.user_id).first();
 
   return user;
@@ -304,7 +304,7 @@ export async function handleGetMe(request: Request, env: Env): Promise<Response>
 
 export async function handleGetUser(request: Request, env: Env, userId: string): Promise<Response> {
   const user: any = await env.duichai_db.prepare(
-    'SELECT id, email, nickname, phone, avatar, role, level, chaihuo_balance, total_chaihuo_earned, invite_code, uid, created_at FROM users WHERE id = ?'
+    'SELECT id, email, nickname, phone, avatar, role, level, chaihuo_balance, total_chaihuo_earned, invite_code, uid, created_at, face_authed, face_gender, avatar_frame_id FROM users WHERE id = ?'
   ).bind(userId).first();
 
   if (!user) {

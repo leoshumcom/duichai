@@ -67,8 +67,7 @@ export async function handleCreateVenue(request: Request, env: Env): Promise<Res
 // 获取场地详情
 export async function handleGetVenue(request: Request, env: Env, venueId: string): Promise<Response> {
   const venue: any = await env.duichai_db.prepare(`
-    SELECT v.*, u.nickname as publisher_name, u.avatar as publisher_avatar,
-           v.owner_id
+    SELECT v.*, u.nickname as publisher_name, u.avatar as publisher_avatar
     FROM venues v
     LEFT JOIN users u ON v.publisher_id = u.id
     WHERE v.id = ?

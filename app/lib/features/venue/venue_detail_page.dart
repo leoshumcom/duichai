@@ -526,8 +526,8 @@ class _VenueDetailPageState extends State<VenueDetailPage> with SingleTickerProv
               label: Text('添柴 $_tipAmount 根 🔥'),
             ),
           ),
-          // 申请成为馆主按钮（仅场馆无owner且当前用户不是owner时显示）
-          if ((v['owner_id'] == null || '${v['owner_id']}' == '') && (context.read<AuthProvider>().user?['role'] != 'owner')) ...[
+          // 申请成为馆主按钮（仅当前用户不是馆主时显示）
+          if (context.read<AuthProvider>().user?['role'] != 'owner') ...[
           const Divider(),
           const SizedBox(height: 8),
           SizedBox(
